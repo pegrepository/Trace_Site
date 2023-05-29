@@ -1,0 +1,561 @@
+﻿@page "/checkpointsettings"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using System.Linq
+@using Microsoft.EntityFrameworkCore;
+@inject IJSRuntime JsRuntime
+@inject NavigationManager _navigationManager
+
+
+
+<PageTitle>Настройки КТ</PageTitle>
+
+@if ((CheckPoints == null) || (user == null))
+{
+<div class='spinner'>
+    <div class='dot'></div>
+    <div class='dot'></div>
+    <div class='dot'></div>
+</div>
+<svg>
+    <defs>
+        <filter id='goo'>
+            <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
+            <feColorMatrix in='blur' mode='matrix' values='
+                1 0 0 0 0 
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 50 -8' result='goo' />
+            <feBlend in='SourceGraphic' in2='goo' />
+        </filter>
+    </defs>
+</svg>
+}
+ else
+    {            
+         <EditForm Model="CheckPoints">
+            <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string dataStr) => Update(CheckPoints.SingleOrDefault(c=>c.CheckPointName==dataStr)))">
+                @foreach (var data in CheckPoints)
+                {
+                    <option value="@data.CheckPointName">@data.CheckPointName</option>
+                }
+            </InputSelect>@*Качественный InputSelect*@
+        </EditForm>
+        <p></p>
+        
+        <div id="line_grid">
+            @if(PermissionLevel("Admin"))
+            {
+                <div>
+                    <div id="sub_line_grid">                        
+                        <div>
+                            <button @onclick="Create">Создать КТ</button>                           
+                        </div>
+                            <div>
+                                @if(selectedCheckPoint != null)
+                                {
+                                    <button @onclick="@(e => SaveResult(selectedCheckPoint, selectedProduct))">Сохранить изменения</button>
+                                }                               
+                            </div>
+                    </div>    
+                </div>                
+                <div></div>
+                <div>
+                    @if(selectedCheckPoint != null)
+                    {      
+                        <button class="red_color_btn" @onclick="@(e => Delete())">Удалить КТ</button>  
+                    }                    
+                </div>
+            }
+        </div>  
+    <p></p>
+    @if(selectedCheckPoint != null)
+    {
+          <div id="grid" style="border: 1px solid;">
+                <div>   
+                     <div class="menu_headers">Имя контрольной точки: </div>
+                     <input size="100%" @bind="selectedCheckPoint.CheckPointName" />
+                     <p></p>   
+                     <div class="menu_headers">IP контрольной точки: </div>
+                     <input size="100%" @bind="selectedCheckPoint.CheckPointIp" />
+                     <p></p> 
+                     <div class="menu_headers">Глобальные настройки контрольной точки: </div>
+                     <textarea style="width:100%" @bind="selectedCheckPoint.CheckPointSettingsJson" />
+                     <p></p> 
+                     <div class="menu_headers" >Глобальные данные контрольной точки: </div>
+                     <textarea style="width:100%" @bind="selectedCheckPoint.CheckPointDataJson" />
+                <p></p>
+
+                <EditForm Model="allProducts">
+                    <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(selectedCheckPoint , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
+                        @foreach (var data in allProducts)
+                        {
+                            <option value="@data.ProductName">@data.ProductName</option>
+                        }
+                    </InputSelect>@*Качественный InputSelect*@
+                </EditForm>
+                    <p></p>
+
+                    @if(selectedProduct != null)
+                    {
+                        <div class="menu_headers">Имя изделия: </div>
+                        <input readonly size="100%" @bind="selectedProduct.ProductName" />
+                        <p></p>
+                        <div class="menu_headers">ID Изделия: </div>
+                        <input readonly @bind="selectedProduct.ProductId" />
+                        <p></p>
+                        <div class="menu_headers">Номер 1С: </div>
+                        <input readonly @bind="selectedProduct.Product1C" />
+                        <p></p>
+                        <div class="menu_headers">Потребитель: </div>
+                        <input readonly @bind="selectedProduct.ProductConsumer" /> 
+                        <p></p>
+                        @* Возможно понадобится ввести фото КТ
+                        <div class="menu_headers">Изображение изделия: </div>    
+                        <InputFile OnChange="LoadFilesProductImage" />
+                        <p></p>
+                        @if(selectedProduct.ProductImage != null & !isLoading_Image)
+                        {
+                            <img src="@LoadImage(selectedProduct.ProductImage)" style="max-width:500px; max-height:300px"/>         
+                        }        
+                        <p></p>   *@   
+                    }
+
+            </div>
+            <div>
+                @if (selectedProduct != null & selectedCheckPoint.CheckPointId == 15)//TODO:15?
+                {
+                    <div class="menu_headers">ТехРом: </div>
+                    <input size="100%" @bind="techromstruct" />
+                    <div class="menu_headers">ВЧ Пин: </div>
+                    <div class="box">
+                        <input id="one" type="checkbox" @bind="vchpinstate">
+                        <span class="check"></span>
+                        <label for="one">Статус</label>
+                    </div>
+                    <div class="menu_headers">Коды запуска УФК: </div>
+                    <p>УФК1: 0x<input size="3" @bind="KodUfk1" /></p>
+                    <p>УФК3 МТС: 0x<input size="3" @bind="KodUfk3mts" /></p>
+                    <p>УФК3 НИТ: 0x<input size="3" @bind="KodUfk3nit" /></p>
+                    <p></p>
+                    <div class="menu_headers">Пределы шагов: </div>
+                    <p></p>
+                    <div id="sub_line_grid">
+                        <div>
+                            <p>Введите для добавления в УФК 1</p>
+                            <p>
+                                Шаг1(XX.): 0x<input size="3" @bind="AddStepUfk1Byte1" />
+                                Шаг2(.XX): 0x<input size="3" @bind="AddStepUfk1Byte2" />
+                            </p>
+                        </div>
+                        <div>
+                            <button @onclick="CreateStepUfk1">Добавить проверку шага на УФК1</button>
+                        </div>
+                    </div>
+
+                    <div id="sub_line_grid">
+                        <div>
+                            <p>Введите для добавления в УФК 3</p>
+                            <p>
+                                Шаг1(XX.): 0x<input size="3" @bind="AddStepUfk3Byte1" />
+                                Шаг2(.XX): 0x<input size="3" @bind="AddStepUfk3Byte2" />
+                            </p>
+                        </div>
+                        <div>
+                            <button @onclick="CreateStepUfk3">Добавить проверку шага на УФК3</button>
+                        </div>
+                    </div>
+                    <p></p>
+
+
+                    <table class="tableClass" style="max-height:250px">
+                        <thead>
+                            <tr>
+                                <th>Точка</th>
+                                <th>Шаг</th>
+                                <th>Минимальное значение</th>
+                                <th>Максимальное значение</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var step in selectedmetraUfk1Settings)
+                            {
+                                <tr>
+                                    <td>УФК1</td>
+                                    <td><input @bind="step.Step" /></td>
+                                    <td><input @bind="step.MinVal" /></td>
+                                    <td><input @bind="step.MaxVal" /></td>
+                                    <button class="red_color_btn" @onclick="@(e => DeleteStepUfk1(step))">Удалить</button>
+                                </tr>
+                            }
+                            @foreach (var step in selectedmetraUfk3Settings)
+                            {
+                                <tr>
+                                    <td>УФК3</td>
+                                    <td><input @bind="step.Step" /></td>
+                                    <td><input @bind="step.MinVal" /></td>
+                                    <td><input @bind="step.MaxVal" /></td>
+                                    <button class="red_color_btn" @onclick="@(e => DeleteStepUfk3(step))">Удалить</button>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+}
+
+
+@code {
+    string selectedItem = "";
+    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    private async void Load()
+    {
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = new(authState.Result.User.Identity.Name, "Настройки КТ");
+        CheckPoints = db.CheckPointsLists.ToList();
+        allProducts = dbProducts.ProductSettings.ToList();
+
+        metraSettings = dbMetra.CheckPointSettings.ToList();
+        metraUfk1Settings = dbMetra.CheckPointSettingsUfk1s.ToList();
+        metraUfk3Settings = dbMetra.CheckPointSettingsUfk3s.ToList();
+
+
+    }
+
+    private bool vchpinstate { get; set; } 
+    private string techromstruct{ get; set; }
+
+    private string KodUfk1
+    {
+        get
+        {
+            string result = ((byte)selectedmetraSettings.KodUfk1).ToString("X");
+            return result.Length < 2 ? "0" + result : result;
+        }
+        set
+        {
+            selectedmetraSettings.KodUfk1 = (byte)convertHEXtoDEC(value);
+        }
+    }
+    private string KodUfk3nit
+    {
+        get
+        {
+            string result = ((byte)selectedmetraSettings.KodUfk3Nit).ToString("X");
+            return result.Length < 2 ? "0" + result : result;
+        }
+        set
+        {
+            selectedmetraSettings.KodUfk3Nit = (byte)convertHEXtoDEC(value);
+        }
+    }
+    private string KodUfk3mts
+    {
+        get
+        {
+            string result = ((byte)selectedmetraSettings.KodUfk3Mts).ToString("X");
+            return result.Length < 2 ? "0" + result : result;
+        }
+        set
+        {
+            selectedmetraSettings.KodUfk3Mts = (byte)convertHEXtoDEC(value);
+        }
+    }
+
+    private string AddStepUfk1Byte1 { get; set; }
+    private string AddStepUfk1Byte2 { get; set; } 
+
+    private string AddStepUfk3Byte1 { get; set; } 
+    private string AddStepUfk3Byte2 { get; set; } 
+
+    public int elementId { get; set; } = 0;
+    public List<int> tupleElements;
+    public int counter { get; set; } = 0;
+
+    private bool Adding { get; set; } = false;
+
+    private DataContext.Checkpoints.CheckPointsContext db = new DataContext.Checkpoints.CheckPointsContext();
+    private DataContext.Checkpoints.CheckPointAutosend.CheckPointAutoSendContext dbAutoSend = new DataContext.Checkpoints.CheckPointAutosend.CheckPointAutoSendContext();
+    private DataContext.Checkpoints.CheckPointMetra.CheckPointMetraContext dbMetra = new DataContext.Checkpoints.CheckPointMetra.CheckPointMetraContext();
+    private DataContext.Checkpoints.CheckPointPackaging.CheckPointPackagingContext dbPackaging = new DataContext.Checkpoints.CheckPointPackaging.CheckPointPackagingContext();
+    private DataContext.Products.ProductsContext dbProducts = new DataContext.Products.ProductsContext();
+
+    private ICollection<DataContext.Checkpoints.CheckPointsList>? CheckPoints { get; set; }
+    private DataContext.Checkpoints.CheckPointsList selectedCheckPoint{ get; set; }
+    private ICollection<DataContext.Products.ProductSettings> allProducts{ get; set; }
+    private DataContext.Products.ProductSettings selectedProduct { get; set; }
+
+
+    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSetting> metraSettings{ get; set; }
+    private DataContext.Checkpoints.CheckPointMetra.CheckPointSetting selectedmetraSettings { get; set; }
+    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1> metraUfk1Settings{ get; set; }
+    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1> selectedmetraUfk1Settings { get; set; }
+    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3> metraUfk3Settings{ get; set; }
+    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3> selectedmetraUfk3Settings { get; set; }
+
+
+
+    /// <summary>
+    /// Проверка уровня доступа
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    private bool PermissionLevel(string level)
+    {
+        foreach(var rule in user.rulesList)
+        {
+            if(rule.PermissionLevel == level)
+            {
+                return true;
+            }            
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Индексация html элементов
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="repeat"></param>
+    /// <returns></returns>
+    public int GetId(bool start, bool repeat)
+    {
+        elementId++;
+        if (start)
+        {
+            tupleElements = new List<int>();
+        }
+        if(tupleElements != null & !repeat)
+        {
+            if (!start)
+            {
+                tupleElements.Add(elementId);
+            }
+        }
+        if (repeat)
+        {
+            if(tupleElements.Count > 0)
+            {
+                elementId = tupleElements.First();
+                tupleElements.RemoveAt(0);   
+            }
+            else
+            {
+                tupleElements = null;
+            }
+
+        }
+
+        return elementId;
+    }
+
+    public void CreateStepUfk1()
+    {
+        try
+        {
+            if(!string.IsNullOrEmpty(AddStepUfk1Byte1) & !string.IsNullOrEmpty(AddStepUfk1Byte2))
+            {
+                selectedmetraSettings.CheckPointSettingsUfk1s.Add(new()
+                {
+                    ProductId = selectedProduct.ProductId,
+                    Step = new byte[] { Convert.ToByte(AddStepUfk1Byte1), Convert.ToByte(AddStepUfk1Byte2) },
+                    MinVal = 0,
+                    MaxVal = 0
+                });                
+            }
+        }
+        catch (Exception)
+        {
+
+        }       
+    }
+
+    public void CreateStepUfk3()
+    {
+        try
+        {
+            if(!string.IsNullOrEmpty(AddStepUfk3Byte1) & !string.IsNullOrEmpty(AddStepUfk3Byte2))
+            {                
+                selectedmetraSettings.CheckPointSettingsUfk3s.Add(new()
+                {
+                    ProductId = selectedProduct.ProductId,
+                    Step = new byte[] { Convert.ToByte(AddStepUfk3Byte1), Convert.ToByte(AddStepUfk3Byte2) },
+                    MinVal = 0,
+                    MaxVal = 0
+                });               
+            }
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+
+    public async void DeleteStepUfk1(DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1 stepR)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить шаг ?"))
+        {
+            dbMetra.CheckPointSettingsUfk1s.Remove(stepR);
+            dbMetra.SaveChanges();
+        }
+        this.StateHasChanged();
+    }
+
+    public async void DeleteStepUfk3(DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3 stepR)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить шаг ?"))
+        {     
+            dbMetra.CheckPointSettingsUfk3s.Remove(stepR);
+            dbMetra.SaveChanges();
+        }
+        this.StateHasChanged();
+    }
+
+
+    private void SelectProduct(DataContext.Checkpoints.CheckPointsList checkpoint, DataContext.Products.ProductSettings izdel)
+    {
+        selectedProduct = izdel;
+        switch (checkpoint.CheckPointId)
+        {
+            case 15:               
+                LoadSettingsFormMetra();
+                break;
+        }
+
+
+
+    }
+
+    private void LoadSettingsFormMetra()
+    {
+        selectedmetraSettings = metraSettings.Where(id => id.ProductId == selectedProduct.ProductId).FirstOrDefault();
+        selectedmetraUfk1Settings = selectedmetraSettings.CheckPointSettingsUfk1s;
+        selectedmetraUfk3Settings = selectedmetraSettings.CheckPointSettingsUfk3s;
+        vchpinstate = selectedmetraSettings.Vch;
+        techromstruct = selectedmetraSettings.TechRomStruct;       
+    }
+
+    /// <summary>
+    /// Добавить новое изделие
+    /// </summary>
+    private void Create()
+    {
+        DisposeForm();
+        DataContext.Checkpoints.CheckPointsList checkpoint = new DataContext.Checkpoints.CheckPointsList();
+        selectedCheckPoint = checkpoint;
+        Adding = true;
+    }
+
+    /// <summary>
+    /// Удалить существующее изделие
+    /// </summary>
+    private async void Delete()
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить КТ: \"" + selectedCheckPoint.CheckPointName + "\" ?"))
+        {     
+            db.Remove(selectedCheckPoint);
+            db.SaveChanges();
+            DisposeForm();
+            _navigationManager.NavigateTo("/checkpointsettings", true);
+        }
+    }
+
+
+    /// <summary>
+    /// Сохранить изменения
+    /// </summary>
+    private async void SaveResult(DataContext.Checkpoints.CheckPointsList checkpoint, DataContext.Products.ProductSettings product) //Добавить сохранение и всех настроек метры с учетом выбранного продукта
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для контрольной точки: \"" + selectedCheckPoint.CheckPointName + "\" ?"))
+        {
+            if (Adding)
+            {
+                AddDataBase();
+            }
+            else
+            {
+                switch (checkpoint.CheckPointId)
+                {
+                    case 15:
+                        if(product != null)
+                        {
+                            selectedmetraSettings.Vch = vchpinstate;
+                            selectedmetraSettings.TechRomStruct = techromstruct;                            
+                            dbMetra.Entry(selectedmetraSettings).State = EntityState.Modified;
+                            dbMetra.SaveChanges();
+                        }
+                        break;
+                }
+                db.Entry(selectedCheckPoint).State = EntityState.Modified;  
+                db.SaveChanges();     
+            }        
+            _navigationManager.NavigateTo("/checkpointsettings", true);   
+        }       
+    }
+
+     /// <summary>
+    /// Добавление новой программы в БД
+    /// </summary>
+    private void AddDataBase()
+    {
+        try
+        {
+            if(!string.IsNullOrEmpty(selectedCheckPoint.CheckPointName))
+            {                
+                db.Add(selectedCheckPoint);
+                db.SaveChanges();
+            } 
+        }
+        catch
+        {
+
+        }        
+    }
+
+
+    private int convertHEXtoDEC(string input)
+    {
+        try
+        {
+            if(input.Length == 1)
+            {
+                input = "0" + input;
+            }
+            Dictionary<string, byte> hexindex = new Dictionary<string, byte>();
+            for (int i = 0; i <= 255; i++)
+                hexindex.Add(i.ToString("X2"), (byte)i);
+            List<byte> hexres = new List<byte>();
+            for (int i = 0; i < input.Length; i += 2)
+                hexres.Add(hexindex[input.Substring(i, 2)]);
+            int l = 0;
+            byte[] s = hexres.ToArray();
+            foreach (byte c in s)
+            {
+                l = l + Convert.ToInt32(c);
+            }
+            return l;
+        }
+        catch(Exception)
+        {
+            return 255;
+
+        }
+   
+    }
+
+    //Обновелние формы при выборе другого изделия
+    private async void Update(DataContext.Checkpoints.CheckPointsList checkpoint)
+    {
+        selectedCheckPoint = checkpoint;
+        selectedProduct = null;
+    }
+
+    private void DisposeForm()
+    {
+        selectedProduct = null;
+        selectedCheckPoint = null;
+    }
+}

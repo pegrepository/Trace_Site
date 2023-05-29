@@ -1,0 +1,104 @@
+﻿
+@page "/TestPage"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navigationManager
+@inject IJSRuntime JsRuntime
+
+@using Microsoft.AspNetCore.Mvc;
+@using System.Linq
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using Microsoft.EntityFrameworkCore;
+@using Newtonsoft.Json
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject IJSRuntime JSRuntime
+
+
+<PageTitle>Тест. Страница</PageTitle>
+<EditForm Model="person">
+     <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedValue)" ValueChanged="@((string value)=>ChangeMethod(value,"world"))">
+        @foreach(string option in Items)
+        {
+            <option value="@option">@option</option>
+        } 
+        </InputSelect>@*Качественный InputSelect*@
+</EditForm>
+<div>
+        <input type="text" @bind="student.Name"/>
+
+        <textarea @bind=student.Name></textarea>
+
+        <label @ref=Label1 @onclick="@(e => ChangeMethod(selectedValue,"world"))" for="@student.Name">Texttext</label>
+</div>
+
+
+@code 
+{
+    private ElementReference Label1;
+     private ElementReference InputSelect1;
+    string selectedValue = "";
+    public class Student
+    {
+        public string Name { 
+            get; 
+            set; } = "";
+        public int Age { get; set; }
+
+        public DateTime EnrollmentDate { get; set; } = DateTime.Now; // дата поступления
+        public bool HasWork { get; set; }                           // работает или нет
+        public string Subject { get; set; } = "";                   // специальность
+        public string[] Courses { get; set; } = new string[] { };   // доп. курсы
+    }
+    Student student = new Student();
+
+    List<string> subjects = new() { "Math", "Programming" };
+    List<string> courses = new() { "C#", "JavaScript", "HTML", "CSS" };
+
+    private BlazorApp1.DataContext.Permissions.UserPermissions? user { get; set; }
+    private ICollection<Database.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
+
+    private Database.SettingSenderMan.SettingSenderManContext db = new Database.SettingSenderMan.SettingSenderManContext();
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    List<string> Items=new List<string>();
+
+
+    private void Load()
+    {
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        student.Name = "falseee";
+        user = new(authState.Result.User.Identity.Name, "Автоотправка");
+
+        SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
+        foreach(var item in SelectItem)
+        {
+            Items.Add(item.ProgrammSend);
+        }
+    }
+
+    public void ChangeMethod(string paramaters, string Vasya)
+    {
+        if (paramaters is null)
+        {
+            throw new ArgumentNullException(nameof(paramaters));
+        }
+       
+        Items.Add(DateTime.Now.ToString("mm"));
+        student.Name = paramaters+Vasya;
+        
+    }
+
+    public class PersonModel
+    {
+        public Gender Gender { get; set; }
+    }
+    PersonModel person = new PersonModel();
+    public enum Gender
+  {
+    Unknown,
+    Male,
+    Female
+  }
+}

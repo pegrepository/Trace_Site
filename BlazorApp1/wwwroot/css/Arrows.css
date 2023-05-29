@@ -1,0 +1,33 @@
+﻿/* Стиль для стрелок фильтров каждого столбца в таблице поиска по системе прослеживаемости */
+
+.arrow {
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    background: transparent;
+    border-top: 3px solid white;
+    border-right: 3px solid white;
+    box-shadow: 0 0 0 lightgray;
+    transition: all 200ms ease;
+}
+
+    .arrow-top {
+        transform: translate3d(0, 0, 0) rotate(-45deg);
+    }
+
+    .arrow-bottom {
+        transform: translate3d(0, 0, 0) rotate(135deg);
+    }
+
+    .arrow:hover {
+        border-color: orange;
+        box-shadow: 3px -3px 3px white;
+    }
+
+    .arrow:before {
+        content: "";
+        position: absolute;       
+        transform: translate(-40%, -60%) rotate(45deg);
+        width: 200%;
+        height: 200%;
+    }

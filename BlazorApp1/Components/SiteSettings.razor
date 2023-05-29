@@ -1,0 +1,611 @@
+﻿@page "/sitesettings"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JsRuntime
+@inject NavigationManager _navigationManager
+
+@using System.Linq
+@using BlazorApp1.DataContext.Permissions
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using Microsoft.AspNetCore.Mvc
+@using Microsoft.EntityFrameworkCore;
+@using System.Collections.Generic;
+@using BlazorApp1.Data.Models.Pages;
+
+
+<PageTitle>Администрирование</PageTitle>
+
+@if (user == null)
+{
+     <div class='spinner'>
+        <div class='dot'></div>
+        <div class='dot'></div>
+        <div class='dot'></div>
+    </div>
+    <svg>
+        <defs>
+            <filter id='goo'>
+                <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
+                <feColorMatrix in='blur' mode='matrix' values='
+                    1 0 0 0 0 
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 50 -8' result='goo' />
+                <feBlend in='SourceGraphic' in2='goo' />
+            </filter>
+        </defs>
+    </svg>
+}
+else
+{
+    @if(!PermissionLevel("Admin"))
+    {
+        <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
+    }
+    else
+    {
+        if(Employees != null)
+        {
+        <details class="custom-select">
+            <summary name="9999" class="radios main_header">
+                @if(NewUser.userName != "")
+                {
+                    <input type="radio" name="item" id="@Employee.EmployeeId" title="@Employee.EmployeeName" checked>             
+                }
+                else
+                {
+                    <input type="radio" name="item" id="0" title="Выбор пользователя:" checked>
+                }
+                @foreach(var employee in Employees)
+                {
+                    <input type="radio" name="item" id="@employee.EmployeeId" title="@employee.EmployeeName">
+                }
+            </summary>
+            <ul class="list">
+                @foreach (var employee in Employees)
+                {
+                <li>
+                    <label @onclick="@(e => Update(employee))" for="@employee.EmployeeId">
+                        @employee.EmployeeName
+                    </label>
+                </li>
+                }
+            </ul>
+        </details>
+        }
+
+        <button @onclick="ButttonNewUser">Добавить оператора</button>
+        <p></p>
+
+        @if (IsUserCreation)
+        {
+            <div>                   
+                <div class="menu_headers">
+                    Имя
+                </div>
+                <input class="input_txt_size"  @bind="Employee.EmployeeName" />
+                <p></p>
+                <div class="menu_headers">
+                    Login
+                </div>        
+                <input readonly class="input_txt_size"  value="@Employee.EmployeeLogin"  /> 
+                <p></p>
+                <div class="menu_headers">
+                    Cadr Id
+                </div>        
+                <input class="input_txt_size" @bind="Employee.EmployeeCard" /> 
+                <p></p>
+                <button class="green_color_btn"  @onclick="SaveNewUser">Сохранить</button>
+                <p></p>
+            </div>
+        }
+        @if (Employee.EmployeeId != 0 && !IsUserCreation)
+        {
+            <p></p>
+            <div class="grid1" style="border: 1px solid;">
+                <div>                   
+                    <div class="menu_headers">
+                        Имя
+                    </div>
+                    <input class="input_txt_size"  @bind="Employee.EmployeeName" />
+                    <p></p>
+                    <div class="menu_headers">
+                        Login
+                    </div>        
+                    <input readonly class="input_txt_size"  value="@Employee.EmployeeLogin"  /> 
+                    <p></p>
+                    <div class="menu_headers">
+                        Cadr Id
+                    </div>        
+                    <input class="input_txt_size" @bind="Employee.EmployeeCard" /> 
+                    <p></p>
+                </div>
+
+                <div>
+                    
+                    <details id="101">
+                        <summary id="1111">Разрешение пользователя</summary>
+                        <button @onclick="ButttonAddNewRule">Добавить правило</button>
+                        <table class="tableClass">
+                            <thead>
+                                <tr>
+                                    <th>Наименование</th>
+                                    <th>       Страница      </th>  
+                                    <th>КТ</th> 
+                                    <th>Разрешение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var permission in Rules.Where(e => e.EmployeeId == Employee.EmployeeId))
+                                {
+                                    counter++;
+                                    var a = permission.EmployeeId;
+                                    if (permission.EmployeeId != 0)
+                                    {                                           
+                                        <tr>
+                                            <td><input @bind="permission.RuleName" />  </td>
+                                            <td>
+                                                <details  class="custom-select">
+                                                    <summary class="radios main_header">
+                                                        @foreach(var item in Pages)
+                                                        {
+                                                            if(permission.WebSitePageId == item.WebSitePageId)
+                                                            {
+                                                                <input type="radio" name="Page + @counter"  id="@GetId(false,false)" title="@item.WebSitePageName" checked>                                        
+                                                            }                                                                             
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach(var item in Pages)
+                                                        {
+                                                        <li>
+                                                            <label @onclick="@(e => UpdateRulePage(item.WebSitePageId, permission))"  for="@GetId(false,false)">
+                                                                    @item.WebSitePageName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details> 
+                                            </td>
+                                            <td>
+                                                <details  class="custom-select">
+                                                    <summary  class="radios main_header">
+                                                        @foreach(var item in ChekPoints)
+                                                        {
+                                                            if(permission.CheckPointId == item.CheckPointId)
+                                                            {
+                                                                <input type="radio" name="CheckPoint + @counter"  id="@GetId(false,false)" title="@item.CheckPointName" checked>
+                                                            }
+
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach(var item in ChekPoints)
+                                                        {
+                                                        <li>
+                                                            <label    @onclick="@(e => UpdateRuleCheckPoint(item.CheckPointId, permission))"  for="@GetId(false,false)"> 
+                                                                    @item.CheckPointName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details> 
+                                            </td>
+                                            <td>
+                                                <details  class="custom-select">
+                                                    <summary class="radios main_header">
+                                                        @foreach(var item in Permissions)
+                                                        {
+                                                            if(permission.PermissionId == item.PermissionId)
+                                                            {
+                                                                <input type="radio" name="Permissions + @counter"  id="@GetId(false,false)" title="@item.PermissionName" checked>
+                                                            }
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach(var item in Permissions)
+                                                        {
+                                                        <li>
+                                                            <label    @onclick="@(e => UpdateRulePermission(item.PermissionId, permission))"  for="@GetId(false,false)"> 
+                                                                    @item.PermissionName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details>                                                
+                                            </td>
+                                            <button class="green_color_btn" @onclick="@(e => SavePermissionRule(permission))">Сохранить</button>
+                                            @if(permission.RuleId != 0)
+                                            {
+                                                <button class="red_color_btn" @onclick="@(e => DeletePermissionRule(permission))">Удалить</button>    
+                                            }                                           
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </details>
+                    <p></p>
+                    <details>
+                        <summary id="22">Виды разрешений</summary>
+                        <button @onclick="ButttonAddNewPermission">Добавить уровень доступа</button>
+                        <table class="tableClass">
+                                <thead>
+                                    <tr>
+                                        <th>Имя</th>
+                                        <th>Уровеь</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var permission in Permissions)
+                                    {
+                                        <tr>
+                                            <td><input @bind="permission.PermissionName" /></td>
+                                            <td><input @bind="permission.PermissionLevel " />  </td>
+                                            <button class="green_color_btn" @onclick="@(e => SavePermission(permission))">Сохранить</button>
+                                            <button class="red_color_btn" @onclick="@(e => DeletePermission(permission))">Удалить</button>
+                                        </tr>
+                                    }
+                                </tbody>
+                        </table>
+                    </details>
+                    <p></p>
+                    <details>
+                        <summary >Страницы</summary>
+                        <button @onclick="ButttonAddNewPage">Добавить страницу</button>
+                            <table class="tableClass">
+                                <thead>
+                                    <tr>
+                                        <th>Имя</th>
+                                        <th>Уровень</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var webPage in Pages)
+                                    {
+                                        <tr>
+                                            <td><input @bind="webPage.WebSitePageId"  readonly/></td>
+                                            <td><input @bind="webPage.WebSitePageName " />  </td>
+                                            <button class="green_color_btn" @onclick="@(e => SaveWebPage(webPage))">Сохранить</button>
+                                            <button class="red_color_btn" @onclick="@(e => DeleteWebPage(webPage))">Удалить</button>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                    </details>                
+                    </div>
+            </div>
+            <button class="red_color_btn" @onclick="@(e => DeleteEmploee())">Удалить пользователя</button>
+         }            
+    }
+}
+@code {
+
+    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+
+    ICollection<PermissionRules>? Rules         { get; set; }
+    ICollection<EmployeesList>?Employees        { get; set; }
+    ICollection<PermissionsList>? Permissions   { get; set; }
+    ICollection<WebSitePagesList>? Pages        { get; set; }
+
+    ICollection<DataContext.Checkpoints.CheckPointsList> ChekPoints { get; set; }
+    DataContext.Checkpoints.CheckPointsContext DBChekPoint = new DataContext.Checkpoints.CheckPointsContext();
+    EmployeesList Employee { get; set; } = new EmployeesList();    // Выбранный пользователь  
+
+    public List<SelectListItem> SelectList { get; set; }
+
+    private UserModel NewUser = new UserModel();
+
+    bool AddNewRecordPage { get; set; } = false;
+    bool AddNewRecordRule { get; set; } = false;
+    bool AddNewRecordPermisiion { get; set; } = false;
+
+    bool IsUserCreation { get; set; } = false;
+    SiteSettingsPageModel PageModel = new SiteSettingsPageModel();
+
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+
+    public int elementId { get; set; } = 0;
+    public List<int> tupleElements;
+    public int counter { get; set; } = 0;
+
+    /// <summary>
+    /// Получение уникального ID
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="repeat"></param>
+    /// <returns></returns>
+    public int GetId(bool start, bool repeat)
+    {
+        elementId++;
+        if (start)
+        {
+            tupleElements = new List<int>();
+        }
+        if(tupleElements != null & !repeat)
+        {
+            if (!start)
+            {
+                tupleElements.Add(elementId);
+            }
+        }
+        if (repeat)
+        {
+            if(tupleElements.Count > 0)
+            {
+                elementId = tupleElements.First();
+                tupleElements.RemoveAt(0);   
+            }
+            else
+            {
+                tupleElements = null;
+            }
+        }
+        return elementId;
+    }
+
+    /// <summary>
+    /// Инициализация страницы
+    /// </summary>
+    private async void Load()
+    {
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = new(authState.Result.User.Identity.Name, "Администрирование");
+
+        Rules = PageModel.DBContext.PermissionRules.ToList();
+        Employees = PageModel.DBContext.EmployeesList.ToList();
+        Pages = PageModel.DBContext.WebSitePagesList.ToList();
+        Permissions = PageModel.DBContext.PermissionsList.ToList();
+
+        ChekPoints = DBChekPoint.CheckPointsLists.ToList();
+    }    
+
+    /// <summary>
+    /// Стандартное обновление при смене пользователя
+    /// </summary>
+    /// <param name="employee"></param>
+    private async void Update(EmployeesList employee)
+    {      
+        IsUserCreation = false;
+        Employee = employee;                         
+    } 
+    /// <summary>
+    /// Проверка уровня доступа
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    private bool PermissionLevel(string level)
+    {
+        foreach(var rule in user.rulesList)
+        {
+            if(rule.PermissionLevel == level)
+            {
+                return true;
+            }            
+        }
+        return false;
+    }
+    /// <summary>
+    /// Создание пользователя
+    /// </summary>
+    /// <param name="user"></param>
+    private void HandleUserAdd(UserModel user)
+    { 
+        var newEmpl = PageModel.CreateNewUser(user);
+        Update(newEmpl);
+    }
+    /// <summary>
+    /// Нажатие на кнопку "Добавить оператора"
+    /// </summary>
+    private void ButttonNewUser()
+    {
+        IsUserCreation = true;
+        Employee = new EmployeesList();
+    }
+
+    /// <summary>
+    /// Нажатие на кнопку "Добавить правило"
+    /// </summary>
+    private void ButttonAddNewRule()
+    {
+        var newRule = new PermissionRules
+        {
+            RuleName = DateTime.Now.ToString(), 
+            EmployeeId = Employee.EmployeeId,
+            PermissionId = 5,
+            WebSitePageId = 1
+        };
+        Rules.Add(newRule);
+        AddNewRecordRule = true;
+    }
+
+    /// <summary>
+    /// Нажатие на кнопку "Добавить уровень доступа"
+    /// </summary>
+    private void ButttonAddNewPermission()
+    {
+        Permissions.Add(new PermissionsList
+        {
+            PermissionLevel = "",
+            PermissionName = ""
+        });
+        AddNewRecordPermisiion = true;
+    }
+    /// <summary>
+    /// Нажатие на кнопку "Добавить страницу"
+    /// </summary>
+    private void ButttonAddNewPage()
+    {
+        Pages.Add(new WebSitePagesList
+        {
+            WebSitePageName = ""
+        });
+        AddNewRecordPage = true;
+    } 
+
+    /// <summary>
+    // Сохранение нового пользователя
+    /// </summary>
+    private void SaveNewUser()
+    {
+        UserModel newEmp = new UserModel
+        {
+            UserName = Employee.EmployeeName,
+            CardId = Employee.EmployeeCard
+        };
+        IsUserCreation = false;
+        HandleUserAdd(newEmp);
+    }
+
+    /// <summary>
+    ////Сохранение/добавление вида разрешения
+    /// </summary>
+    /// <param name="item"></param>
+    private void SavePermission(PermissionsList item)
+    {
+        if (!AddNewRecordPermisiion)
+        {
+            PageModel.DBContext.Entry(item).State = EntityState.Modified;
+            PageModel.DBContext.SaveChanges(); 
+        }
+        else
+        {
+            PageModel.DBContext.Add(item);
+            PageModel.DBContext.SaveChanges();
+            AddNewRecordPermisiion = false;
+        }
+    }
+
+    /// <summary>
+    ////Удаление существующего вида разрешения
+    /// </summary>
+    /// <param name="item"></param>
+    private async void DeletePermission(PermissionsList item)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите вид разрешения: \"" + item.PermissionName + "\" ?"))
+        {
+            Permissions.Remove(item);
+            if (PageModel.DeletePermission(item))
+            {
+                StateHasChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    ////Сохранение/добавление страницы
+    /// </summary>
+    /// <param name="item"></param>
+    private void SaveWebPage(WebSitePagesList item)
+    {
+        if (!AddNewRecordPage)
+        {
+            PageModel.DBContext.Entry(item).State = EntityState.Modified;
+            PageModel.DBContext.SaveChanges(); 
+        }
+        else
+        {
+            PageModel.DBContext.Add(item);
+            PageModel.DBContext.SaveChanges();
+            AddNewRecordPermisiion = false;
+        }
+    }
+
+    /// <summary>
+    /// Удаление страницы
+    /// </summary>
+    /// <param name="item"></param>
+    private async void DeleteWebPage(WebSitePagesList item)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить страницу: \"" + item.WebSitePageName + "\" ?"))
+        {
+            Pages.Remove(item);
+            if (PageModel.DeletePage(item))
+            {
+                StateHasChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// /Сохранение/добавление правила
+    /// </summary>
+    /// <param name="item"></param>
+    private void SavePermissionRule(PermissionRules item)
+    {
+        if (!AddNewRecordRule)
+        {
+            PageModel.DBContext.Entry(item).State = EntityState.Modified;
+            PageModel.DBContext.SaveChanges(); 
+        }
+        else
+        {
+            int newId = PageModel.CreateNewRule(item);
+            if (newId != 0)
+            {
+                item.RuleId = newId;                         
+            }
+            AddNewRecordPermisiion = false;
+        }
+    }
+
+    /// <summary>
+    /// Удаление Правила
+    /// </summary>
+    /// <param name="item"></param>
+    private async void DeletePermissionRule(PermissionRules item)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить правило: \"" + Employee.EmployeeName + "-" + item.WebSitePage.WebSitePageName + "\" ?"))
+        {
+            if (PageModel.DeleteRule(item))
+            {
+                Rules.Remove(item);
+            }
+        }
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Изменение страницы в правиле
+    /// </summary>
+    /// <param name="pageId"></param>
+    /// <param name="ruleId"></param>
+    private void UpdateRulePage(int pageId, PermissionRules rule)
+    {
+        rule.WebSitePageId = pageId;       
+    }
+
+    /// <summary>
+    /// Изменение КТ в правиле
+    /// </summary>
+    /// <param name="cpId"></param>
+    /// <param name="ruleId"></param>
+    private void UpdateRuleCheckPoint(int cpId, PermissionRules rule)
+    {
+        rule.CheckPointId = cpId;
+    }
+
+    /// <summary>
+    /// Изменение Разрешения в правиле
+    /// </summary>
+    /// <param name="permId"></param>
+    /// <param name="ruleId"></param>
+    private void UpdateRulePermission(int permId, PermissionRules rule)
+    {
+        rule.PermissionId = permId;
+    }
+
+    /// <summary>
+    /// Удаление пользователя
+    /// </summary>
+    private async void DeleteEmploee()
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить пользователя: \"" + Employee.EmployeeName + "\" ?"))
+        {
+            if(PageModel.DeleteUser(Employee))
+            {
+                _navigationManager.NavigateTo("/sitesettings", true);   
+            }          
+        }
+    }
+}

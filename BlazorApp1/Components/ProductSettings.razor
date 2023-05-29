@@ -1,0 +1,1056 @@
+﻿@page "/productsettings"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager _navigationManager
+@inject IJSRuntime JsRuntime
+
+@using Data.Models.Pages
+@using System.Linq
+@using Microsoft.EntityFrameworkCore;
+@using Newtonsoft.Json
+@using Microsoft.AspNetCore.Mvc;
+@using FastReport
+@using FastReport.Export.Image;
+
+<PageTitle>Настройки изделия</PageTitle>
+
+@if ((allProducts == null) || (user == null))
+{
+@*<div class='spinner'>
+    <div class='dot'></div>
+    <div class='dot'></div>
+    <div class='dot'></div>
+</div>
+<svg>
+    <defs>
+        <filter id='goo'>
+            <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
+            <feColorMatrix in='blur' mode='matrix' values='
+                1 0 0 0 0 
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 50 -8' result='goo' />
+            <feBlend in='SourceGraphic' in2='goo' />
+        </filter>
+    </defs>
+</svg>*@
+}
+else
+{
+@if(!PermissionLevel("Admin"))
+{
+        <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
+    }
+    else
+    {
+        
+            <EditForm Model="allProducts">
+                <InputSelect class="SelectElementStyle" ValueExpression="@(()=>selectedValue)" ValueChanged="@((string Strvalue) => Update(allProducts.SingleOrDefault(c => c.ProductName==Strvalue)))">
+                    @if (selectedProduct == null)
+                    {
+                     <option value"">Выберите изделие...</option>
+                    }
+                    @foreach (var data in allProducts)
+                    {
+                         <option value="@data.ProductName">@data.ProductName </option>
+                     }
+             </InputSelect>@*Качественный InputSelect*@
+        </EditForm>
+
+<p></p>
+
+<div id="line_grid">
+    
+    <div>
+        
+        <div id="sub_line_grid">
+            <div>
+                <button @onclick="Create">Создать изделие</button>  
+            </div>
+            <div> 
+               @if(selectedProduct != null)
+               { 
+                <button class="green_color_btn" @onclick="SaveResult">Сохранить изменения</button>   
+               }
+            </div>
+
+        </div>
+       
+    </div>
+    <div></div>
+    <div>
+        @if(selectedProduct != null)
+        {       
+        <button class="red_color_btn" @onclick="@(e => Delete())">Удалить изделие</button>        
+        }
+    </div>
+    
+</div>
+
+<p></p>
+        @if (selectedProduct != null)
+        {            
+            <div id="grid" class="divElementStyle">
+
+                <div>                    
+                    <div class="menu_headers">Имя изделия: </div>
+                    <input  size="100%" @bind="selectedProduct.ProductName" />
+                    <p></p>
+                    <div class="menu_headers">ID Изделия: </div>
+                    <input @bind="selectedProduct.ProductId" />
+                    <p></p>
+                    <div class="menu_headers">Номер 1С: </div>
+                    <input @bind="selectedProduct.Product1C" />
+                    <p></p>
+                    <div class="menu_headers">Потребитель: </div>
+                    <input @bind="selectedProduct.ProductConsumer" />
+                    <p></p>  
+                    <div class="menu_headers">Набор ярлыков изделия: </div>
+
+                    <details name="producttaglist" class="custom-select">
+                        <summary class="radios main_header">
+                            
+                            @if(selectedProduct.ProductTag == null)
+                            {
+                                <input type="radio" name="itemtag" id="@GetId(true,false)" title="Выберите набор ярлыков..." checked>
+                            }
+                            else
+                            {
+                                <input type="radio" name="itemtag" id="@GetId(true,false)" title="@selectedProduct.ProductTag.TagName" checked>
+                            }                            
+                            @foreach(var data in allTags)
+                            {
+                            <input type="radio" name="itemtag" id="@GetId(false,false)" title="@data.TagName">
+                            }
+                        </summary>
+                        <ul class="list">
+                            @foreach (var data in allTags)
+                            {
+                            <li>
+                                <label @onclick="@(e => ChangeTagId(selectedProduct, data))" for="@GetId(false,true)">
+                                    @data.TagName
+                                </label>
+                            </li>
+                            }
+                        </ul>
+                    </details>
+                    <p></p>
+                    <div class="menu_headers">Изображение изделия: </div>    
+                    <InputFile OnChange="LoadFilesProductImage" />
+                    <p></p>
+                    @if(selectedProduct.ProductImage != null & !isLoading_Image)
+                    {
+                        <img src="@LoadImage(selectedProduct.ProductImage)" style="max-width:500px; max-height:300px"/>         
+                    }        
+                    <p></p>                     
+                </div>    
+                
+                <div>                    
+                    <details name="taglist">
+                    <summary>Список наборов ярлыков </summary>
+                    <button @onclick="CreateTagsList">Добавить набор ярлыков</button>
+                    @if (allTags != null)
+                    {                            
+                        <table class="tableClass">
+                            <thead>
+                                <tr>
+                                    <th>Название комплекта ярлыков</th>
+                                    <th>Название комплекта параметров</th>
+                                    <th>Название этикетки этикетки</th>
+                                    <th>Название упаковочного листа</th>
+                                    <th>Название паспорта</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var data in allTags)
+                                {
+                                    counter++;
+                                    <tr>
+                                        <td ><input @bind="data.TagName" /></td>
+                                            
+                                                <td>
+                                                    <details name="tagparameters" class="custom-select" >
+                                                    <summary class="radios main_header">
+                                                        @if(data.TagParameters != null)
+                                                        {
+                                                            <input type="radio" name="tagparameters + @counter" id="@GetId(true,false)" title="@data.TagParameters.TagParametersName" checked>
+                                                        }
+                                                        else
+                                                        {
+                                                            <input type="radio" name="tagparameters + @counter" id="@GetId(true,false)" title="Выберите набор параметров..." checked>
+
+                                                        }
+                                                        @foreach(var tagparameters in allTagParameters)
+                                                        {
+                                                        <input type="radio" name="tagparameters + @counter" id="@GetId(false,false)" title="@tagparameters.TagParametersName">
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach (var tagparameters in allTagParameters)
+                                                        {
+                                                        <li>
+                                                            <label  @onclick="@(e => ChangeTagParam(data, tagparameters))"  for="@GetId(false,true)">
+                                                                @tagparameters.TagParametersName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details>                                                              
+                                                </td>                                                                                  
+                                           
+                                            
+                                            <td>
+                                                <details name="taglabel" class="custom-select" >
+                                                    <summary class="radios main_header">
+                                                        @if (data.TagLabel != null)
+                                                        {
+                                                            <input type="radio" name="taglabel + @counter" id="@GetId(true,false)" title="@data.TagLabel.LabelName" checked>
+                                                        }
+                                                        else
+                                                        {
+                                                            <input type="radio" name="taglabel + @counter" id="@GetId(true,false)" title="Выберите этикетку..." checked>
+                                                        }
+                                                        @foreach(var label in allLabels)
+                                                        {
+                                                        <input type="radio" name="taglabel + @counter" id="@GetId(false,false)" title="@label.LabelName">
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach (var label in allLabels)
+                                                        {
+                                                        <li>
+                                                            <label  @onclick="@(e => ChangeTagLabel(data,label))"  for="@GetId(false,true)">
+                                                                @label.LabelName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details>                                                              
+                                                </td>
+                                                                                               
+                                                <td>
+                                                    <details name="tagpackinglist" class="custom-select" >
+                                                    <summary class="radios main_header">
+                                                        @if (data.TagPackingList != null)
+                                                        {
+                                                            <input type="radio" name="tagpackinglist + @counter" id="@GetId(true,false)" title="@data.TagPackingList.PackingListName" checked>
+                                                        }
+                                                        else
+                                                        {
+                                                            <input type="radio" name="tagpackinglist + @counter" id="@GetId(true,false)" title="Выберите упаковочный лист..." checked>
+                                                        }
+                                                        @foreach(var packinglist in allPackingLists)
+                                                        {
+                                                        <input type="radio" name="tagpackinglist + @counter" id="@GetId(false,false)" title="@packinglist.PackingListName">
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach (var packinglist in allPackingLists)
+                                                        {
+                                                        <li>
+                                                            <label  @onclick="@(e => ChangeTagPackingList(data, packinglist))"  for="@GetId(false,true)">
+                                                                @packinglist.PackingListName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details>                                                              
+                                                </td>
+                                                                                              
+                                                <td>
+                                                    <details name="tagpassport" class="custom-select" >
+                                                    <summary class="radios main_header">
+                                                        @if (data.TagPassport != null)
+                                                        {
+                                                            <input type="radio" name="tagpassport + @counter" id="@GetId(true,false)" title="@data.TagPassport.PassportName" checked>
+                                                        }
+                                                        else
+                                                        {
+                                                            <input type="radio" name="tagpassport + @counter" id="@GetId(true,false)" title="Выберите паспорт" checked>
+                                                        }
+                                                        @foreach(var passport in allPassports)
+                                                        {
+                                                        <input type="radio" name="tagpassport + @counter" id="@GetId(false,false)" title="@passport.PassportName">
+                                                        }
+                                                    </summary>
+                                                    <ul class="list">
+                                                        @foreach (var passport in allPassports)
+                                                        {
+                                                        <li>
+                                                            <label  @onclick="@(e => ChangeTagPassport(data, passport))"  for="@GetId(false,true)">
+                                                                @passport.PassportName
+                                                            </label>
+                                                        </li>
+                                                        }
+                                                    </ul>
+                                                </details>                                                              
+                                                </td>
+                                                     
+                                        <button class="green_color_btn" @onclick="@(e => SaveTagList(data))">Сохранить</button>
+                                        <button class="red_color_btn" @onclick="@(e => DeleteTagList(data))">Удалить</button>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </details>
+                    <details>
+                    <summary>Список наборов параметров </summary>
+                    <button @onclick="CreateParamsList">Добавить набор параметров</button>
+                    @if (allTagParameters != null)
+                    {
+                        <table class="tableClass">
+                            <thead>
+                                <tr>
+                                    <th>Название набора параметров</th>
+                                    <th>Параметры этикетки</th>
+                                    <th>Параметры упаковочного листа</th>
+                                    <th>Параметры паспорта</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              
+                                @foreach (var data in allTagParameters)
+                                {
+                                    counter++;
+                                    <tr>
+                                        <td><input @bind="data.TagParametersName" /></td>
+                                        <td>                                            
+                                            <textarea style="z-index:100" @bind="data.LabelParametersJson"></textarea>
+                                        </td>
+                                        <td>                                             
+                                            <textarea style="z-index:100" @bind="data.PackingListParametersJson"></textarea>
+                                        </td>
+                                        <td>                                              
+                                            <textarea style="z-index:100" @bind="data.PassportParametersJson"></textarea>
+                                        </td>
+
+                                        <button class="green_color_btn" @onclick="@(e => SaveParamsList(data))">Сохранить</button>
+                                        <button class="red_color_btn" @onclick="@(e => DeleteParamsList(data))">Удалить</button>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </details>
+                    <details>
+                        <summary>Список этикеток </summary>
+                        <button @onclick="CreateLabel">Добавить этикетку</button>
+                        @if (allLabels != null)
+                        {
+                            <table class="tableClass">
+                                <thead>
+                                    <tr>
+                                        <th>Название этикетки</th>
+                                        <th>Предварительный просмотр</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                  
+                                    @foreach (var data in allLabels)
+                                    {
+                                        <tr>
+                                            <td><textarea @bind="data.LabelName" /></td>
+                                            <td>
+                                            <p></p>
+                                            @if(data.LabelImage != null & !isLoading_Image)
+                                            {                              
+                                                <img src="@LoadFrxImage(data.LabelImage)" style="max-width:250px; max-height:300px"/> 
+                                            }
+                                               
+                                            </td>
+                                            <InputFile OnChange="@((InputFileChangeEventArgs args) => LoadFilesLabel(args, data))" style="position:relative"/> 
+                                            <button class="green_color_btn" @onclick="@(e => SaveLabel(data))">Сохранить</button>
+                                            <button class="red_color_btn" @onclick="@(e => DeleteLabel(data))">Удалить</button>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </details>
+                    <details>
+                        <summary>Список упаковочных листов</summary>
+                        <button @onclick="CreatePackingList">Добавить упаковочный лист</button>
+                        @if (allPackingLists != null)
+                        {
+                            <table class="tableClass">
+                                <thead>
+                                    <tr>
+                                        <th>Название упаковочного листа</th>
+                                        <th>Предварительный просмотр</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    @foreach (var data in allPackingLists)
+                                    {
+                                        <tr>
+                                            <td><textarea  @bind="data.PackingListName" /></td>
+                                            <td>
+                                            <p></p>
+                                            @if(data.PackingListImage != null & !isLoading_Image)
+                                            {
+                                                <img src="@LoadFrxImage(data.PackingListImage)" style="max-width:250px; max-height:300px"/> 
+                                            }
+                                               
+                                            </td>
+                                            <InputFile OnChange="@((InputFileChangeEventArgs args) => LoadFilesPackingList(args, data))" style="position:relative"/> 
+                                            <button class="green_color_btn" @onclick="@(e => SavePackingList(data))">Сохранить</button>
+                                            <button class="red_color_btn" @onclick="@(e => DeletePackingList(data))">Удалить</button>
+                                        </tr>
+                                    }
+                                    
+                                </tbody>
+                            </table>
+                        }
+                    </details>
+                    <details>
+                    <summary>Список паспортов</summary>
+                    <button @onclick="CreatePassport">Добавить паспорт</button>
+                    @if (allPassports != null)
+                    {
+                        <table class="tableClass">
+                            <thead>
+                                <tr>
+                                    <th>Название паспорта</th>
+                                    <th>Предварительный просмотр</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                @foreach (var data in allPassports)
+                                {
+                                    <tr>
+                                        <td><textarea @bind="data.PassportName" /></td>
+                                        <td>
+                                        <p></p>
+                                        @if(data.PassportImage != null & !isLoading_Image)
+                                        {                                                    
+                                            <img src="@LoadFrxImage(data.PassportImage)" style="max-width:250px; max-height:300px"/> 
+                                        }
+                                               
+                                        </td>
+                                        <InputFile OnChange="@((InputFileChangeEventArgs args) => LoadFilesPassport(args, data))" style="position:relative"/> 
+                                        <button class="green_color_btn" @onclick="@(e => SavePassport(data))">Сохранить</button>
+                                        <button class="red_color_btn" @onclick="@(e => DeletePassport(data))">Удалить</button>
+                                    </tr>
+                                }
+                              
+                            </tbody>
+                        </table>
+                    }
+                    </details>                   
+                </div>
+
+            </div>
+            
+        }
+    }
+}
+
+
+@code {
+    string selectedValue = "";//Переменная для лямбда выражений InputSelect. 
+
+    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    private async void Load()
+    {
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        user = new(authState.Result.User.Identity.Name, "Настройки изделия");
+
+        //.Include(t => t.ProductTag)
+        //.Include(t => t.ProductTag.TagParameters)
+        //.Include(l => l.ProductTag.TagLabel)
+        //.Include(p => p.ProductTag.TagPackingList)
+        //.Include(p => p.ProductTag.TagPassport)
+
+
+        allProducts = db.ProductSettings.ToList();
+        allTags = db.ProductTags.ToList();
+        allTagParameters = db.ProductTagParameters.ToList();
+        allLabels = db.ProductLabels.ToList();
+        allPackingLists = db.ProductPackingLists.ToList();
+        allPassports = db.ProductPassports.ToList();
+    }
+
+
+    /// <summary>
+    /// Проверка уровня доступа
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    private bool PermissionLevel(string level)
+    {
+        foreach(var rule in user.rulesList)
+        {
+            if(rule.PermissionLevel == level)
+            {
+                return true;
+            }            
+        }
+        return false;
+    }
+
+    private BlazorApp1.DataContext.Products.ProductsContext db = new DataContext.Products.ProductsContext();
+    private ICollection<DataContext.Products.ProductSettings> allProducts { get; set; } //Выбранный для редактирования продукт
+    private ICollection<DataContext.Products.ProductTags> allTags { get; set; } //Выбранный для редактирования продукт
+    private ICollection<DataContext.Products.ProductTagParameters> allTagParameters { get; set; } //Выбранный для редактирования продукт
+    private ICollection<DataContext.Products.ProductLabels> allLabels { get; set; } //Выбранный для редактирования продукт
+    private ICollection<DataContext.Products.ProductPackingLists> allPackingLists { get; set; } //Выбранный для редактирования продукт
+    private ICollection<DataContext.Products.ProductPassports> allPassports { get; set; } //Выбранный для редактирования продукт
+
+    private ICollection<string> LabelParams{ get; set; }
+
+    private DataContext.Products.ProductSettings? selectedProduct { get; set; } //Выбранный для редактирования продукт   
+
+    public int elementId { get; set; } = 0;
+    public List<int> tupleElements;
+    public int counter { get; set; } = 0;   
+
+    private bool isAdding_ParamsList { get; set; } = false;
+    private bool isAdding_TagsList { get; set; } = false;
+    private bool isAdding_Label { get; set; } = false;
+    private bool isAdding_PackingList { get; set; } = false;
+    private bool isAdding_Passport { get; set; } = false;
+
+    private bool isLoading_Image { get; set; } = false;
+    /// <summary>
+    /// Загрузка Изображения на сайт из файла или бинарных данных
+    /// </summary>
+    /// <returns></returns>
+    private string LoadImage(byte[] image)
+    {
+        isLoading_Image = true;
+        try
+        {  
+            isLoading_Image = false;
+            return string.Format("data:image/jpeg;base64,{0}", Convert.ToBase64String(image));                   
+        }
+        catch
+        {
+            isLoading_Image = false;
+            return "";
+        }
+    }
+
+    /// <summary>
+    /// Индексация html элементов
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="repeat"></param>
+    /// <returns></returns>
+    public int GetId(bool start, bool repeat)
+    {
+        elementId++;
+        if (start)
+        {
+            tupleElements = new List<int>();
+        }
+        if(tupleElements != null & !repeat)
+        {
+            if (!start)
+            {
+                tupleElements.Add(elementId);
+            }
+        }
+        if (repeat)
+        {
+            if(tupleElements.Count > 0)
+            {
+                elementId = tupleElements.First();
+                tupleElements.RemoveAt(0);   
+            }
+            else
+            {
+                tupleElements = null;
+            }
+
+        }
+
+        return elementId;
+    }
+
+    /// <summary>
+    /// Загрузка Изображения Frx на сайт из файла или бинарных данных
+    /// </summary>
+    /// <returns></returns>
+    private string LoadFrxImage(byte[] image)
+    {
+        isLoading_Image = true;
+       
+        try
+        {
+            isLoading_Image = false;
+            return string.Format("data:image/jpeg;base64,{0}", Convert.ToBase64String(Load(image)));                   
+        }
+        catch
+        {
+            isLoading_Image = false;
+            return "";
+        }
+    }
+
+    /// <summary>
+    /// Загрузка изображения изделия
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task<byte[]> LoadFiles(InputFileChangeEventArgs e)
+    {
+        isLoading_Image = true;
+        byte[] data = new byte[e.File.Size];
+        using (Stream str = e.GetMultipleFiles().FirstOrDefault().OpenReadStream(10000000))
+        {
+            using (MemoryStream ms = new MemoryStream())
+            {
+                await str.CopyToAsync(ms);
+                data = ms.ToArray();
+            }
+            isLoading_Image = false;
+        }
+        return data;  
+    }
+
+    /// <summary>
+    /// Загрузка изображения изделия
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task LoadFilesProductImage(InputFileChangeEventArgs e)
+    {
+        if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".jpg"))
+        {
+            selectedProduct.ProductImage = await LoadFiles(e);           
+        }
+        else
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg");
+        }        
+    }
+
+    /// <summary>
+    /// Загрузка изображения изделия
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task LoadFilesLabel(InputFileChangeEventArgs e, DataContext.Products.ProductLabels label)
+    {
+        try
+        {
+            if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".frx"))
+            {   
+                label.LabelImage = await LoadFiles(e);
+            }
+            else 
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg"); 
+            }
+        }
+        catch
+        {
+
+        }
+    }
+
+    /// <summary>
+    /// Загрузка изображения изделия
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task LoadFilesPackingList(InputFileChangeEventArgs e, DataContext.Products.ProductPackingLists packinglist)
+    {
+        try
+        {
+            if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".frx"))
+            {
+                packinglist.PackingListImage = await LoadFiles(e);                
+            }
+            else 
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg"); 
+            }
+        }
+        catch
+        {
+
+        }
+    }
+
+    /// <summary>
+    /// Загрузка изображения изделия
+    /// </summary>
+    /// <param name="e"></param>
+    /// <returns></returns>
+    private async Task LoadFilesPassport(InputFileChangeEventArgs e, DataContext.Products.ProductPassports passport)
+    {
+        try
+        {
+            if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".frx"))
+            {                
+                passport.PassportImage = await LoadFiles(e);               
+            }
+            else 
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg"); 
+            }
+        }
+        catch
+        {
+
+        }
+    }
+
+    /// <summary>
+    /// Метод для конвертации frx2jpg, для создания изображения на сайте по файлу образа или по бинарным данным
+    /// </summary>
+    /// <returns></returns>
+    //FastReport.Preview.
+
+    public byte[] Load(byte[] frx_image)
+    {
+        using (Report report = new Report())
+        {
+            using (MemoryStream stream = new MemoryStream(frx_image))
+            {
+                
+                report.Load(stream);
+                report.Prepare();
+
+                // report.ShowPrepared();
+                using (ImageExport image = new ImageExport())
+                {
+                    image.ImageFormat = ImageExportFormat.Jpeg;
+                    image.JpegQuality = 100; // Set up the quality
+                    image.Resolution = 100; // Set up a resolution 
+                    image.SeparateFiles = false; // We need all pages in one big single file   
+
+                    using (MemoryStream st = new MemoryStream())
+                    {
+                        report.Export(image, st);
+                        return st.ToArray();
+                    }
+                }
+            }
+        }
+    }  
+
+    #region Редактирование формы
+
+    public Dictionary<string, string> GetJsonDict(string Json)
+    {       
+        Dictionary<string, string> dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(Json);
+        return dict;  
+    }   
+
+    public void ChangeTagId(DataContext.Products.ProductSettings product, DataContext.Products.ProductTags tagid)
+    {
+        product.ProductTag = tagid;
+    }
+
+    private void ChangeTagParam(DataContext.Products.ProductTags tag, DataContext.Products.ProductTagParameters tagparam)
+    {
+        tag.TagParameters = tagparam;        
+    }
+
+    private void ChangeTagLabel(DataContext.Products.ProductTags tag, DataContext.Products.ProductLabels taglabel)
+    {
+        tag.TagLabel = taglabel;
+    }
+
+    private void ChangeTagPackingList(DataContext.Products.ProductTags tag, DataContext.Products.ProductPackingLists tagpackinglist)
+    {
+        tag.TagPackingList = tagpackinglist;
+    }
+    private void ChangeTagPassport(DataContext.Products.ProductTags tag, DataContext.Products.ProductPassports tagpassport)
+    {
+        tag.TagPassport = tagpassport;
+    }   
+
+    private void CreateTagsList()
+    {
+
+        allTags = allTags.Prepend(new DataContext.Products.ProductTags()).ToList();
+        isAdding_TagsList = true;
+        this.StateHasChanged();
+    }
+
+    //Добавить новую скрытую копию
+    private void CreateParamsList()
+    {
+        allTagParameters = allTagParameters.Prepend(new DataContext.Products.ProductTagParameters
+        {
+            LabelParametersJson = JsonConvert.SerializeObject(new LabelParameters()),
+            PackingListParametersJson = JsonConvert.SerializeObject(new PackingListParameters()),
+            PassportParametersJson = JsonConvert.SerializeObject(new PassportParameters())
+        }).ToList();
+        isAdding_ParamsList = true;
+        this.StateHasChanged();
+    }
+
+    //Добавить новую скрытую копию
+    private void CreateLabel()
+    {
+        allLabels = allLabels.Prepend(new DataContext.Products.ProductLabels()).ToList();
+        isAdding_Label = true;
+        this.StateHasChanged();
+    }
+
+    //Добавить изделие
+    private void CreatePackingList()
+    {
+        allPackingLists = allPackingLists.Prepend(new DataContext.Products.ProductPackingLists()).ToList();
+        isAdding_PackingList = true;
+        this.StateHasChanged();
+    }  
+
+    //Добавить изделие
+    private void CreatePassport()
+    {
+        allPassports = allPassports.Prepend(new DataContext.Products.ProductPassports()).ToList();
+        isAdding_Passport = true;
+        this.StateHasChanged();
+    } 
+    
+      //Удаление скрытой копии из коллекции
+    private async void SaveTagList(DataContext.Products.ProductTags tags)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + tags.TagName + "\" ?"))
+        {
+            if (!isAdding_TagsList)
+            {
+                db.Entry(tags).State = EntityState.Modified;  
+                db.SaveChanges();
+            }
+            else
+            {
+                db.Add(tags);
+                db.SaveChanges();
+                isAdding_TagsList = false;
+            }
+
+           this.StateHasChanged();
+        }          
+    }
+    //Удаление скрытой копии из коллекции
+    private async void DeleteTagList(DataContext.Products.ProductTags tags)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант этикетки: \"" + tags.TagName + "\" ?"))
+        {
+            db.Remove(tags);
+            db.SaveChanges();
+            allTags?.Remove(tags);
+            this.StateHasChanged();
+        }         
+    }
+
+     //Удаление скрытой копии из коллекции
+    private async void SaveParamsList(DataContext.Products.ProductTagParameters parames)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + parames.TagParametersName + "\" ?"))
+        {
+            if (!isAdding_ParamsList)
+            {
+                db.Entry(parames).State = EntityState.Modified;  
+                db.SaveChanges();
+            }
+            else
+            {
+                db.Add(parames);
+                db.SaveChanges();
+                isAdding_ParamsList = false;
+            }
+
+           this.StateHasChanged();
+        }          
+    }
+    //Удаление скрытой копии из коллекции
+    private async void DeleteParamsList(DataContext.Products.ProductTagParameters parames)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант этикетки: \"" + parames.TagParametersName + "\" ?"))
+        {
+            db.Remove(parames);
+            db.SaveChanges();
+            allTagParameters?.Remove(parames);
+            this.StateHasChanged();
+        }         
+    }
+
+    //Удаление скрытой копии из коллекции
+    private async void SaveLabel(DataContext.Products.ProductLabels label)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + label.LabelName + "\" ?"))
+        {
+            if (!isAdding_Label)
+            {
+                db.Entry(label).State = EntityState.Modified;  
+                db.SaveChanges();
+            }
+            else
+            {
+                db.Add(label);
+                db.SaveChanges();
+                isAdding_Label = false;
+            }
+
+           this.StateHasChanged();
+        }          
+    }
+    //Удаление скрытой копии из коллекции
+    private async void DeleteLabel(DataContext.Products.ProductLabels label)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант этикетки: \"" + label.LabelName + "\" ?"))
+        {
+            db.Remove(label);
+            db.SaveChanges();
+            allLabels?.Remove(label);
+            this.StateHasChanged();
+        }         
+    }
+
+     //Удаление скрытой копии из коллекции
+    private async void SavePackingList(DataContext.Products.ProductPackingLists packinglist)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для упаковочного листа: \"" + packinglist.PackingListName + "\" ?"))
+        {
+            if (!isAdding_PackingList)
+            {
+                db.Entry(packinglist).State = EntityState.Modified;
+                db.SaveChanges(); 
+            }
+            else
+            {
+                db.Add(packinglist);
+                db.SaveChanges();
+                isAdding_PackingList = false;
+            }
+           
+           this.StateHasChanged();
+        } 
+         
+    }
+    //Удаление скрытой копии из коллекции
+    private async  void DeletePackingList(DataContext.Products.ProductPackingLists packinglist)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант упаковочного листа: \"" + packinglist.PackingListName + "\" ?"))
+        {
+           db.Remove(packinglist);
+           db.SaveChanges();
+           allPackingLists?.Remove(packinglist); 
+           this.StateHasChanged();
+        }           
+    }
+    
+    //Удаление скрытой копии из коллекции
+    private async void SavePassport(DataContext.Products.ProductPassports passport)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для паспорта: \"" + passport.PassportName + "\" ?"))
+        {
+            if (!isAdding_Passport)
+            {
+                db.Entry(passport).State = EntityState.Modified;  
+                db.SaveChanges(); 
+            }
+            else
+            {
+                db.Add(passport);
+                db.SaveChanges();
+                isAdding_Passport = false;
+            }
+            
+            this.StateHasChanged();
+        } 
+
+    }
+    //Удаление скрытой копии из коллекции
+    private async void DeletePassport(DataContext.Products.ProductPassports passport)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант паспорта: \"" + passport.PassportName + "\" ?"))
+        {
+            db.Remove(passport);
+            db.SaveChanges();
+            allPassports?.Remove(passport);
+            this.StateHasChanged();
+        }               
+    }   
+
+    #endregion
+
+    //Редактирование программы
+    #region Редактирование программы
+
+    //Добавить новое изделие
+    bool Adding = false;
+    private void Create()
+    {
+        DisposeForm();
+        selectedProduct = new DataContext.Products.ProductSettings();       
+        Update(selectedProduct);
+        Adding = true;
+    }
+
+    /// <summary>
+    /// Добавление новой программы в БД
+    /// </summary>
+    private void AddDataBase()
+    {
+        try
+        {
+            if(!string.IsNullOrEmpty(selectedProduct.ProductName))
+            {                
+                db.Add(selectedProduct);
+                db.SaveChanges();
+            } 
+        }
+        catch
+        {
+
+        }        
+    }
+
+    //Стандартное обновление
+    private async void Update(DataContext.Products.ProductSettings product)
+    {
+        selectedProduct = product;
+    }   
+
+    //Сохранение изменений на сервере    
+    private async void SaveResult()
+    {
+         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для продукта: \"" + selectedProduct.ProductName + "\" ?"))
+        {
+            if (Adding)
+            {
+                AddDataBase();
+            }
+            else
+            {
+                db.Entry(selectedProduct).State = EntityState.Modified;  
+                db.SaveChanges();     
+            }        
+            _navigationManager.NavigateTo("/productsettings", true);   
+        }       
+    } 
+
+    //Удаление изделия из коллекции
+    private async void Delete()
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить изделие: \"" + selectedProduct.ProductName + "\" ?"))
+        {     
+            db.Remove(selectedProduct);
+            db.SaveChanges();
+            DisposeForm();
+            _navigationManager.NavigateTo("/productsettings", true);
+        }
+    }  
+
+    //Очищаем форму
+    private void DisposeForm()
+    {
+        selectedProduct = null;        
+    }
+
+    #endregion
+}

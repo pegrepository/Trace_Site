@@ -1,0 +1,1532 @@
+﻿@page "/traceability"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using System.Linq;
+@using BlazorApp1.DataContext.Checkpoints.CheckPointMetra
+@using Microsoft.EntityFrameworkCore;
+@using DataContext.Traceability;
+@using DataContext.Checkpoints;
+@using DataContext.Checkpoints;
+@using DataContext.Checkpoints.CheckPointAutosend;
+@using DataContext.Checkpoints.CheckPointPackaging;
+@using Data.Models.Pages;
+
+@using Majorsoft.Blazor.Components.Notifications
+@using BlazorDateRangePicker
+
+@inject NavigationManager _navigationManager
+@using BlazorApp1.DataBase.NewMesContext;
+@inject IJSRuntime JS
+
+@inject BlazorApp1.DataBase.NewMesContext.NewMes db
+@inject BlazorApp1.DataBase.PackDataBase.UpackageContext  pack
+@inject BlazorDownloadFile.IBlazorDownloadFileService DownloadService;
+
+@using Newtonsoft.Json.Linq;
+@using Newtonsoft.Json;
+@using NPOI.SS.UserModel;
+@using NPOI.XSSF.UserModel;
+
+<PageTitle>Прослеживаемость</PageTitle>
+
+@if ( user == null || LoadingInProgress)
+{
+ <div class='spinner'>
+    <div class='dot'></div>
+    <div class='dot'></div>
+    <div class='dot'></div>
+</div>
+<svg>
+    <defs>
+        <filter id='goo'>
+            <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
+            <feColorMatrix in='blur' mode='matrix' values='
+                1 0 0 0 0 
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 50 -8' result='goo' />
+            <feBlend in='SourceGraphic' in2='goo' />
+        </filter>
+    </defs>
+</svg>
+}
+else
+{
+   @if(!PermissionLevel("Admin"))
+    {
+        <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
+    }
+    else
+    {
+        <div class="grid1" >
+            <div>
+                <label>Глобальный поиск</label>
+                <input type="checkbox" class="regular-checkbox"  name="Global"  @bind="GlobalSearch">    
+            </div>
+            <div>     
+                <details class="custom-select">
+                    <summary class="radios main_header">
+                        @foreach(var data in Trace.SearchType)
+                        {
+                            if(data.Key == 1)
+                            {
+                                <input type="radio" name="item" id="@data.Key" title="@data.Value" checked>
+                            }
+                            else
+                            {
+                                <input type="radio" name="item" id="@data.Key" title="@data.Value">
+                            }
+                        }
+                    </summary>
+                    <ul class="list">
+                        @foreach (var data in Trace.SearchType)
+                        {
+                            <li>
+                                <label @onclick="@(e => Update(data.Key))" for="@data.Key">
+                                    @data.Value
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                </details>
+            </div>
+        </div>
+        <p></p>
+
+        <div id="line_grid">
+            <div>
+                @switch(IndexSub)
+                {
+                    case 1:
+                    <input class="input_txt_size" size="30px" @onkeydown="@Enter" @oninput="(EventArgs) => {SetValue(EventArgs.Value.ToString());}"/>
+                    break;
+                    case 2:
+                    <input class="input_txt_size" size="30px"  @onkeydown="@Enter" @oninput="(EventArgs) => {SetValue(EventArgs.Value.ToString());}"/>
+                    break;
+                    case 3:
+                        <DateRangePicker  @bind-StartDate="StartDate" @bind-EndDate="EndDate" ShowOnlyOneCalendar="true">
+                            <ButtonsTemplate>                            
+                                <button class="btn btn-sm btn-outline-success" @onclick="@context.ClickApply"
+                                        disabled="@(context.TStartDate == null || context.TEndDate == null)"
+                                        type="button">
+                                    Apply
+                                </button>
+                            </ButtonsTemplate>
+                            <PickerTemplate>
+                                <div id="@context.Id" @onclick="context.Toggle" style="background: #fff; cursor: pointer; padding: 5px 10px; width: 250px; border: 1px solid #ccc;">
+                                    <i class="oi oi-calendar"></i>&nbsp;
+                                        <span>@context.FormattedRange @(string.IsNullOrEmpty(context.FormattedRange) ? "Choose dates..." : "")</span>
+                                    <i class="oi oi-chevron-bottom float-right"></i>
+                                </div>
+                            </PickerTemplate>
+                        </DateRangePicker> 
+                    break;
+                    case 4:
+                    <input class="input_txt_size" size="30px"  @onkeydown="@Enter" @oninput="(EventArgs) => {SetValue(EventArgs.Value.ToString());}"/>
+                    break;
+                    case 5:
+                    <input class="input_txt_size" size="30px" @onkeydown="@Enter"  @oninput="(EventArgs) => {SetValue(EventArgs.Value.ToString());}"/>
+                    break;
+                }
+                <p></p>
+            </div>
+            <div>
+                <button @onclick="LoadSearching" ><i class=@WaitForLoad></i>Найти</button>  
+            </div>    
+            <div>
+                 <button @onclick="loadExcel">Скачать в Excel</button> 
+            </div>
+            <div>
+                @if (!GlobalSearch)
+                {
+                    <details class="custom-select">
+                    <summary class="radios main_header">
+                        @if(!IndirectUIChange)
+                        {
+                            <input type="radio" name="CPitem" id="1" title="Выбор Контрольной точки" checked>        
+                        }
+                        
+                        @foreach(var cp in CheckPoints)
+                        {
+                            @if (IndirectUIChange && SelectedCP == cp)
+                            {
+                                <input type="radio" name="CPitem" id="@cp.CheckPointId" title="@cp.CheckPointName" checked>
+                            }
+                            else
+                            {
+                                <input type="radio" name="CPitem" id="@cp.CheckPointId" title="@cp.CheckPointName">        
+                            }
+                             
+                        }
+                    </summary>
+                    <ul class="list">
+                        @foreach (var cp in CheckPoints)
+                        {
+                                
+                             <li>
+                                <label for="@cp.CheckPointId"  @onclick="@(e => SelectCP(cp))" >
+                                    @cp.CheckPointName
+                                </label>
+                            </li>
+                        }
+                        </ul>
+                    </details>
+                }
+            </div>
+            <div>
+            <Alert Type="@_alertTypeLevel"
+	            NotificationStyle="@_alertStyle"
+	            @bind-IsVisible="_alertIsVisible"
+	            AutoClose="@_alertAutoClose"
+	            AutoCloseInSec="@_alertAutoCloseInSec"
+	            ShowCloseButton="@_alertShowCloseButton"
+	            ShowIcon="@_alertShowIcon"
+	            ShadowEffect="@_alertShadowEffect"
+	            ShowCloseCountdownProgress="@_alertShowCountdownProgress"
+	            CustomIconSvgPath="@_alertCustomSvg"
+	            OnShow="OnShow"
+	            OnClose="OnClose"
+	            OnCloseButtonClicked="OnCloseButtonClicked">
+	            <Content>
+		            @((MarkupString)_alertText)
+	            </Content>
+            </Alert>
+            </div>
+        </div>
+                                    
+        @if (TraceabilityTable != null)
+        {
+            <div class="grid">
+                <div>
+                    <section>
+                        @if(GlobalSearch)
+                        {                       
+                            <div class="tbl-header">
+                                <table >
+                                    <thead>
+                                        <tr>                                       
+                                            @foreach (var name in HeadersNameGlobal)
+                                            {
+                                                <th>
+                                                    <div id="header_grid">
+                                                        <div id="header_name">@name</div>
+                                                        <div id="up_arrow">  
+                                                            <span class="arrow arrow-top" @onclick="@(e => FilterGlobalTable(@name, false))"></span>
+                                                        </div>
+                                                        <div id="down_arrow">  
+                                                            <span class="arrow arrow-bottom" @onclick="@(e => FilterGlobalTable(@name, true))"></span>
+                                                        </div>                                                   
+                                                    </div>     
+                                                </th>
+                                            }          
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+                            <div class="tbl-content">
+                                <table >
+                                    <tbody>       
+                                        @foreach (var item in TraceabilityTable)
+                                        {
+                                            <tr> 
+                                            @*<tr @onclick="@(e => LoadSubData(item))"> *@
+                                                <td>@item.BarCode</td>
+                                                <td>@item.ProductId</td>
+                                                <td>@item.CheckTime</td>
+                                                <td>@CheckPoints.SingleOrDefault(e=>e.CheckPointId == item.LastCheckPointId).CheckPointName</td>
+                                                <td>@item.Result</td>
+                                                <td>@item.LastCheckPointErrors</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        @if(!GlobalSearch)
+                        {
+                            <div class="tbl-header">
+                                <table >
+                                    <thead>
+                                        <tr>                                       
+                                            @foreach (var name in HeadersNameCP)
+                                            {
+                                                <th>
+                                                    <div id="header_grid">
+                                                        <div id="header_name">@name</div>
+                                                        <div id="up_arrow">  
+                                                            <span class="arrow arrow-top" @onclick="@(e => FilterCPTable(@name, false))"></span>
+                                                        </div>
+                                                        <div id="down_arrow">  
+                                                            <span class="arrow arrow-bottom" @onclick="@(e => FilterCPTable(@name, true))"></span>
+                                                        </div>                                                   
+                                                    </div>     
+                                                </th>
+                                            }          
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+                            <div class="tbl-content">
+                                <table >
+                                    <tbody>       
+                                        @foreach (var item in SelectedCPtable)
+                                        {
+                                            
+                                            <tr @onclick="@(e => LoadSubData(item))">
+                                                <td>@item.BarCode</td>
+                                                <td>@item.ProductId</td>
+                                                <td>@item.CheckTime</td>
+                                                <td>@item.Name</td>
+                                                <td>@item.Result</td>
+                                                <td>@item.Error</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>   
+                        }
+                    </section>
+                </div>
+               
+                <div>
+                    @if(SelectedUFK3 != null)
+                    {
+                         <section>
+                        <div class="tbl-header">
+                            <table >
+                                <thead>
+                                    <tr>
+                                         <th>Шаг тестирования</th>
+                                         <th>Значение</th>                                          
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table >
+                                <tbody>       
+                                    @foreach(var item in SelectUfk3Test)
+                                    {
+                                        <tr>
+                                            <td>@item.Key</td>
+                                            <td>@item.Value</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>                       
+                    }
+
+                    @if(SelectedUFK1 != null)
+                    {
+                        <section>
+                            <div class="tbl-header">
+                                <table >
+                                    <thead>
+                                        <tr>
+                                            <th>Шаг тестирования</th>
+                                            <th>Значение</th>     
+                                        </tr>
+                                    </thead>
+                                </table>
+                            </div>
+                            <div class="tbl-content">
+                                <table >
+                                    <tbody>       
+                                        @foreach(var item in SelectUfk1Test)
+                                        {
+                                            <tr>
+                                                <td>@item.Key</td>
+                                                <td>@item.Value</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>  
+                    }
+
+                </div>
+
+                <div>
+                    
+                    @if(SelectedProgrammer != null)
+                    {
+                        <section>
+                            <div class="tbl-header">
+                                <table >
+                                <thead>
+                                    <tr>
+                                        @foreach(var head in PgHeaders)
+                                        {
+                                            <th>@head</th>
+                                        }                                        
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table >
+                                <tbody>  
+                                    <tr>
+                                        <td>@SelectedProgrammer.Id</td>
+                                        <td>@SelectedProgrammer.Ku</td>
+                                        <td>@SelectedProgrammer.ProductName</td>
+                                        <td>@SelectedProgrammer.ProductVersion</td>
+                                        <td>@SelectedProgrammer.Result</td>
+                                        <td>@SelectedProgrammer.TimeStart</td>
+                                        <td>@SelectedProgrammer.TimeStop</td>
+                                        <td>@SelectedProgrammer.Error</td>
+                                        <td>@SelectedProgrammer.Logs</td>
+                                        <td>@SelectedProgrammer.LocalBarCode</td>
+                                    </tr>                                   
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>  
+                    }
+
+                    @if(SelectedPrinter != null)
+                    {
+                        <section>
+                            <div class="tbl-header">
+                                <table >
+                                    <thead>
+                                        <tr>
+                                            @foreach (var head in PrintHeaders)
+                                            {
+                                                <th>@head</th>
+                                            }                                       
+                                        </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table >
+                                <tbody>  
+                                    <tr>
+                                        <td>@SelectedPrinter.Id</td>
+                                        <td>@SelectedPrinter.Time</td>
+                                        <td>@SelectedPrinter.QrData</td>
+                                        <td>@SelectedPrinter.LocalBarCode</td>
+                                        <td>@SelectedPrinter.Name</td>
+                                        <td>@SelectedPrinter.File</td>
+                                        <td>@SelectedPrinter.Param1</td>
+                                        <td>@SelectedPrinter.Param2</td>
+                                        <td>@SelectedPrinter.Param3</td>
+                                        <td>@SelectedPrinter.Param4</td>
+                                        <td>@SelectedPrinter.Param5</td>
+                                        <td>@SelectedPrinter.Version</td>
+                                        <td>@SelectedPrinter.Serial</td>
+                                        <td>@SelectedPrinter.Result.ToString()</td>
+                                    </tr>                                   
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>  
+                    }
+                    
+                    @if(SelectedPackBarCode != null)
+                    {
+                         <section>
+                            <div class="tbl-header">
+                                <table >
+                                    <thead>
+                                        <tr>
+                                             @foreach(var head in PackHeaders)
+                                             {
+                                                 <th>@head</th>
+                                             }                                   
+                                        </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table>
+                                <tbody>  
+                                    <tr>
+                                        <td>@SelectedPackBarCode.ProductKey</td>
+                                        <td>@SelectedPackBarCode.ServerName</td>
+                                        <td>@SelectedPackBarCode.BarCode</td>
+                                        <td>@SelectedPackBarCode.SerialNumber</td>
+                                        <td>@SelectedPackBarCode.QrReadData</td>
+                                        <td>@SelectedPackBarCode.PackData</td>
+                                        <td>@SelectedPackBarCode.CardSequrity</td>
+                                        <td>@SelectedPackBarCode.Iccid</td>
+                                        <td>@SelectedPackBarCode.VimIccid</td>
+                                        <td>@SelectedPackBarCode.Imei</td>
+                                        <td>@PackageSerial</td>
+                                    </tr>                                   
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>     
+                    }
+
+                </div>
+                <div>                   
+                </div>
+            </div>
+        }    
+        @if(SelectBoxes != null)
+        {
+             <div class="grid">
+                <div>
+                    <section>
+                        <div class="tbl-header">
+                            <table >
+                                <thead>
+                                    <tr>                                        
+                                        @foreach (var name in BoxHeaders)
+                                        {
+                                            <th>@name</th>
+                                        }          
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table >
+                                <tbody>       
+                                    @foreach(var barcode in SelectBoxes.Products)
+                                    {
+                                        <tr>
+                                            <td>@SelectBoxes.ProductId</td>
+                                            <td>@barcode</td>
+                                            <td>@SelectBoxes.Date.ToString("O")</td>    
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>       
+        }   
+    }
+}
+
+
+@code {
+
+    private bool _alertIsVisible = false;
+    private bool _alertAutoClose = true;
+    private bool _alertShowIcon = false;
+    private bool _alertShowCloseButton = false;
+    private bool _alertShowCountdownProgress = false;
+    private uint _alertAutoCloseInSec = 3;
+    private uint _alertShadowEffect = 1;
+    private string _alertText = "";//$@"<strong>Alert:</strong> This is a(n) {nameof(NotificationTypes.Primary)} alert...";
+    private string _alertCustomSvg;
+    private NotificationTypes _alertTypeLevel = NotificationTypes.Success;
+    private NotificationStyles _alertStyle = NotificationStyles.Strong;
+
+
+    public async Task OnShow()
+    {
+        //TODO: handle Alert event
+    }
+    public async Task OnClose()
+    {
+        _alertIsVisible = false;	
+    }
+    private async Task OnCloseButtonClicked()
+    {
+        _alertIsVisible = false;    
+    }
+    public void NotificationSuccess(string message)
+    {
+        _alertIsVisible = true;
+        _alertText = message;
+        _alertTypeLevel = NotificationTypes.Success;
+    }
+    public void NotificationFail(string message)
+    {
+        _alertIsVisible = true;
+        _alertText = message;
+        _alertTypeLevel = NotificationTypes.Warning;
+    }
+
+    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    private async void Load()
+    {
+        IndexSub = 1;
+        NameSub = "BarCode";
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = new(authState.Result.User.Identity.Name, "Прослеживаемость");
+
+        LoadTraceabilityTable();
+        CheckPoints = DBChekPoint.CheckPointsLists.ToList();
+    }
+
+    private BlazorApp1.Data.Models.Pages.TraceabilityPage Trace = new BlazorApp1.Data.Models.Pages.TraceabilityPage();
+
+    public string WaitForLoad { get; set; } = "none";
+    private int IndexSub { get; set; } //Индекс субМеню
+    private string? NameSub { get; set; }//Наименование субМеню
+    private string? BarCode { get; set; }//Переменная отвечающая за BarCode
+    private string? Serial { get; set; }//Переменная отвечающая за серийный нмоер
+    DateTimeOffset? StartDate { get; set; } = DateTime.Today.AddMonths(-1);
+    DateTimeOffset? EndDate { get; set; } = DateTime.Today.AddDays(1).AddTicks(-1);
+
+    private DateTime Date { get; set; } = DateTime.Now;//переменная отвечающая за время
+    private string? ICCID { get; set; }//переменная отвечающая за ICCID
+    private string? BoxId{ get; set; }//Костыль ввиде поиска по Idкоробки
+
+    private IQueryable<DataBase.NewMesContext.Mes>? SelectItem { get; set; }//Модель главной таблицы БД
+    private ICollection<MesSelected>? TableMes { get; set; }//Коллекция отображающая таблицу   
+    private DataBase.PackDataBase.Models.BoxSelected? SelectBoxes{ get; set; }
+
+    private string[] HeadersNameGlobal = new string[] { "BarCode", "ProductId", "CheckTime", "LastCheckPointId","Result", "Error" };//Header для глобальной таблицы
+    private string[] HeadersNameCP = new string[] { "BarCode", "ProductId", "CheckTime", "КТ", "Result", "Error" };//Header для таблицы КТ
+    private string[] HeadersNameCPPackage = new string[] { "BarCode", "ProductId", "CheckTime", "BoxId" };//Header для таблицы КТ Упаковка
+    private string[] StationNames = new string[] { "PG МЕТРА", "УФК1 МЕТРА", "УФК3 МЕТРА", "Принтер МЕТРА", "KT Упаковка"};//Название станций
+    private string[] PgHeaders = new string[] { "id", "Ку", "Имя ПО", "Версия ПО", "Результат", "Начало", "Окончание", "Ошибка", "Доп.инф.", "BarCode" };
+    private string[] Ufk1Headers = new string[] {"id", "Ку", "Серийный номер", "Пароль Глонасс", "Техром", "Код Сценария", "Вч-Пин", "Время начала", "Время окончания", "Ошибка", "Результат" };
+    private string[] Ufk3Headers = new string[] { "id", "Ку", "Серийный номер", "Пароль Глонасс", "Техром", "ICCID", "Код Сценария", "Время начала", "Время окончания", "Ошибка", "Результат" };
+    private string[] PrintHeaders = new string[] { "id", "Время", "QR", "BarCode", "Название продукта", "Имя файла", "Param1", "Param2", "Param3", "Param4", "Param5", "Version", "Serial", "Result"};
+    private string[] PackHeaders = new string[] { "ProductID", "Сервер", "BarCode", "S/N", "Этикетка", "Дата", "Упаковщик", "ICCID", "ICCID_VIM", "IMEI", "BoxId" };
+    private string[] BoxHeaders = new string[] { "ProductID", "BarCode", "Дата" };
+
+    private Dictionary<string, string>? SelectUfk1Test { get; set; }
+    private Dictionary<string, string>? SelectUfk3Test { get; set; }
+    private DataBase.NewMesContext.Pg? SelectPg { get; set; }
+    private DataBase.NewMesContext.Ufk1? SelectUfk1 { get; set; }
+    private DataBase.NewMesContext.Ufk3? SelectUfk3 { get; set; }
+    private DataBase.NewMesContext.Printer? SelectPrint { get; set; }  
+    private DataBase.PackDataBase.PackDataBase? SelectPuck { get; set; }
+    //-------------------------------------------------------------------------------------------------------------------------------------------------------------------   
+    private bool LoadingInProgress = false;
+
+    // Флаг глобального поиска;
+    private bool globalSearch = true;  
+    private bool GlobalSearch 
+    { 
+        get 
+        { 
+            return globalSearch; 
+        }
+        set
+        {
+            if (value)
+            {
+                _navigationManager.NavigateTo("/traceability", true);
+            }
+
+            globalSearch = value;
+        }
+    } 
+    private bool IndirectUIChange = false;
+
+    TraceabilityContext TraceabilityDB = new TraceabilityContext();
+    ICollection<Global> TraceabilityTable;
+    List<string> TraceabilityTableColumns;
+    ICollection <Global> TraceSelectedItems;
+
+    ICollection<CheckPointsList> CheckPoints { get; set; }
+    CheckPointsContext DBChekPoint = new CheckPointsContext();
+
+    CheckPointMetraContext CPMetraContext = new CheckPointMetraContext();
+    CheckPointDataProgrammer SelectedProgrammer{ get; set; }
+    CheckPointDataUfk1 SelectedUFK1 { get; set; }
+    CheckPointDataUfk3 SelectedUFK3 { get; set; }
+    CheckPointDataPrinter SelectedPrinter { get; set; }
+
+    CheckPointPackagingContext CPPackageContext = new CheckPointPackagingContext();
+    BlazorApp1.DataContext.Checkpoints.CheckPointPackaging.CheckPointData SelectedPackBarCode { get; set; }
+    string PackageSerial { get; set; } = "";
+    CheckPointDataSerials SelectedBox { get; set; }
+
+    CheckPointsList SelectedCP { get; set; }
+    List<CPtableModel> SelectedCPtable = new List<CPtableModel>();
+    List<CPtableModel> SelectedCPtable_cache = new List<CPtableModel>();
+
+    /// <summary>
+    /// Замена @bind= так как не успевало измениться значение поля поиска при нажатии на Enter
+    /// </summary>
+    /// <param name="value"></param>
+    private void SetValue(string value)
+    {
+
+        switch(Trace.SearchType[IndexSub])
+        {
+            case "Поиск по Баркоду":
+                BarCode = value.Trim();
+                break;
+            case "Поиск по BoxId":
+                BoxId = value.Trim();
+                break; 
+            case "Поиск по Серийному номеру":
+                Serial = value.Trim();
+                break;
+            case "Поиск по ICCID":
+                ICCID = value.Trim();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Поиск по нажатию на Enter
+    /// </summary>
+    /// <param name="e"></param>
+    protected async Task Enter(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            LoadSearching();     
+        }
+    }
+
+    /// <summary>
+    /// Проверка уровня доступа
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    private bool PermissionLevel(string level)
+    {
+        foreach(var rule in user.rulesList)
+        {
+            if(rule.PermissionLevel == level)
+            {
+                return true;
+            }            
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Обнуление доп информации по выбранному элементу
+    /// </summary>
+    public void ClearSubData()
+    {
+        SelectedProgrammer = null;
+        SelectedUFK1 = null; 
+        SelectedUFK3 = null; 
+        SelectedPrinter = null;
+        SelectUfk1Test = null;
+        SelectUfk3Test = null;
+
+        SelectedBox = null;
+        PackageSerial = "";
+        SelectedPackBarCode = null;
+    }
+    private void Update(int search_key)
+    {
+        ClearSubData();
+        IndexSub = search_key;
+        switch(Trace.SearchType[IndexSub])
+        {
+            case "Поиск по Баркоду":
+                IndirectUIChange = false;
+                CheckPoints = DBChekPoint.CheckPointsLists.ToList();
+                break;
+            case "Поиск по BoxId":
+                // Поиск по BoxId возможен только по КТ Упаковка (id = 13)
+                GlobalSearch = false;
+                var cp = CheckPoints.FirstOrDefault(e => e.CheckPointId == 13);
+                SelectCP(cp);
+                IndirectUIChange = true;
+                break; 
+            case "Поиск по Серийному номеру":
+                // Поиск по SerialNumber возможен только по КТ Упаковка и Метра
+                GlobalSearch = false;
+                CheckPoints = DBChekPoint.CheckPointsLists.Where(e=>e.CheckPointId == 15 || e.CheckPointId == 13).ToList();
+                IndirectUIChange = true;
+                break;
+            case "Поиск по ICCID":
+                // Поиск по ICCID возможен только по КТ Упаковка и Метра
+                GlobalSearch = false;
+                CheckPoints = DBChekPoint.CheckPointsLists.Where(e=>e.CheckPointId == 15 || e.CheckPointId == 13).ToList();
+                IndirectUIChange = true;
+                break;
+
+            case "Поиск по Дате":
+                break;
+        }
+    }
+
+    private void Search(string DataSearch, int Index)//выбор субМеню
+    {
+        IndexSub = Index;
+        NameSub = DataSearch;
+    }
+    /// <summary>
+    /// Поиск по нажатию на кнопку "Найти"
+    /// </summary>
+    private async void LoadSearching()
+    { 
+        // Сброс кэша при смене типа поиска
+        SelectedCPtable_cache.Clear();
+        SelectedCPtable.Clear();
+        ClearSubData();   
+
+        switch(IndexSub)
+        {
+
+            case 1: // Поиск по Баркоду
+                if (GlobalSearch)
+                {
+                    TraceabilityTable = TraceabilityDB.Global.Where(c => c.BarCode == BarCode).ToList();
+                    if (TraceabilityTable.Count > 0)
+                    {
+                        NotificationSuccess("Найдено " + TraceabilityTable.Count + " записей");
+                    }
+                    else
+                        NotificationFail("Ничего не найдено");    
+                }
+                else
+                {
+                    if (SelectedCP != null)
+                    {
+                        switch (SelectedCP.CheckPointId)
+                        {
+                            case 13:    // КТ Упаковка
+                                LoadPackageData();
+                                break;
+                            case 15:    // КТ Метра
+                                LoadMetraData();
+                                break;
+                        }
+
+                    }
+                }
+                break; 
+
+            case 2: // Поиск по Серийному номеру    !Global
+                if (SelectedCP != null)
+                {
+                    switch (SelectedCP.CheckPointId)
+                    {
+                        case 13: // КТ Упаковка
+                            LoadPackageData();
+                            break;
+                        case 15: // КТ Метра                                
+                            LoadMetraData();
+                            break;
+                    }                  
+                }
+                break;
+            case 3: // Поиск по Дате
+                if(GlobalSearch)
+                {
+                    DateTime startDate = StartDate.Value.Date;
+                    DateTime endDate = EndDate.Value.Date;
+
+                    // Явное приведение к не-nullable DateTime
+                    TraceabilityTable = TraceabilityDB.Global.Where(e=>((DateTime)e.CheckTime).Date >= startDate && ((DateTime)e.CheckTime).Date <= endDate).AsNoTracking().ToList();
+                    if (TraceabilityTable.Count > 0)
+                    {
+                        NotificationSuccess("Найдено " + TraceabilityTable.Count + " записей");
+                    }
+                    else
+                        NotificationFail("Ничего не найдено");
+                }
+                else
+                {   
+                    if (SelectedCP != null)
+                    {
+                        switch (SelectedCP.CheckPointId)
+                        {
+                            case 13: // КТ Упаковка
+                                LoadPackageData();
+                                break;
+                            case 15: // КТ Метра                                
+                                LoadMetraData();
+                                break;
+                        }
+                    }
+                }
+                break; 
+
+            case 4: // Поиск по ICCID     !Global                                
+                if(SelectedCP != null)
+                {                   
+                    switch(SelectedCP.CheckPointId)
+                    {
+                        case 13: // КТ Упаковка
+                            LoadPackageData();
+                            break;
+                        case 15: // КТ Метра                                
+                            LoadMetraData();
+                            break;
+                    }
+                }
+                break;                    
+            case 5: // Поиск по BoxId
+                SelectedCPtable.Clear();
+                SelectedBox = CPPackageContext.CheckPointDataSerials.Include(e=>e.CheckPointDataPackages).FirstOrDefault(e => e.Serial == BoxId);
+                if(SelectedBox != null)
+                {
+                    var barCodesinBox = SelectedBox.CheckPointDataPackages.ToList();
+                    foreach(var item in barCodesinBox)
+                    {
+                        CPtableModel newElem = new CPtableModel()
+                            {
+                                BarCode = item.BarCode,
+                                ProductId = SelectedBox.ProductId,
+                                CheckTime = SelectedBox.Date,
+                                Result = true,
+                                Name = "КТ-Упаковка"
+                            };
+                        SelectedCPtable.Add(newElem);    
+                    }
+                    if (SelectedCPtable.Count > 0)
+                    {
+                        NotificationSuccess("Найдено " + SelectedCPtable.Count + " записей");
+                    }
+                    else
+                        NotificationFail("Ничего не найдено");
+                }
+                break;
+        }
+        if (SelectedCP == null && !GlobalSearch)
+        {
+            NotificationFail("Необходимо выбрать КТ для поиска");   
+        }
+        // Открыть доп информацию по первому элементу из списка
+        if (SelectedCPtable.Count != 0)
+        {
+            LoadSubData(SelectedCPtable.First());   
+        }
+
+
+    }
+
+    /// <summary>
+    /// Фильтр глобальной таблицы
+    /// </summary>
+    /// <param name="hname"></param>
+    /// <param name="order"></param>
+    private void FilterGlobalTable(string hname, bool order)
+    {
+        if (TraceabilityTable.Count != 0)
+        {
+            switch (hname)
+            {
+                case "BarCode":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.BarCode).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.BarCode).Select(c => c).ToArray();
+                    }
+                    break;
+                case "ProductId":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.ProductId).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.ProductId).Select(c => c).ToArray();
+                    }
+                    break;
+                case "CheckTime":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.CheckTime).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.CheckTime).Select(c => c).ToArray();
+                    }
+                    break;
+                case "LastCheckPointId":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.LastCheckPointId).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.LastCheckPointId).Select(c => c).ToArray();
+                    }
+                    break;
+                case "Result":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.Result).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.Result).Select(c => c).ToArray();
+                    }
+                    break;
+                case "Error":
+                    if (order)
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderBy(c => c.LastCheckPointErrors).Select(c => c).ToArray();
+                    }
+                    else
+                    {
+                        TraceabilityTable = TraceabilityTable?.OrderByDescending(c => c.LastCheckPointErrors).Select(c => c).ToArray();
+                    }
+                    break;
+            }
+        }            
+    }
+
+
+
+    /// <summary>
+    /// Фильтр КТ таблицы
+    /// </summary>
+    /// <param name="hname"></param>
+    /// <param name="order"></param>
+    private void FilterCPTable(string hname, bool order)
+    {   
+        if (SelectedCPtable.Count != 0)
+        {
+            switch (hname)
+            {
+                case "BarCode":
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy(c => c.BarCode).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending(c => c.BarCode).Select(c => c).ToList();
+                    }
+                    break;
+                case "ProductId":
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy(c => c.ProductId).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending(c => c.ProductId).Select(c => c).ToList();
+                    }
+                    break;
+                case "CheckTime":
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy(c => c.CheckTime).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending(c => c.CheckTime).Select(c => c).ToList();
+                    }
+                    break;
+                case "КТ":
+                    // Кастомный фильтр по шагам на Метра
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy
+                        ( c=> 
+                        {
+                            switch (c.Name)
+                            {
+                                case "Программатор": return 1;
+                                case "УФК1": return 2;
+                                case "УФК3": return 3;
+                                case "Принтер": return 4;
+                                default: return 10;
+                            } 
+                        } 
+                        ).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending
+                        (c => {
+                            switch (c.Name)
+                            {
+                                case "Программатор": return 1;
+                                case "УФК1": return 2;
+                                case "УФК3": return 3;
+                                case "Принтер": return 4;
+                                default: return 10;
+                            } 
+                        }).Select(c => c).ToList();
+                    }
+                    break;
+                case "Result":
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy(c => c.Result).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending(c => c.Result).Select(c => c).ToList();
+                    }
+                    break;
+                case "Error":
+                    if (order)
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderBy(c => c.Error).Select(c => c).ToList();
+                    }
+                    else
+                    {
+                        SelectedCPtable = SelectedCPtable?.OrderByDescending(c => c.Error).Select(c => c).ToList();
+                    }
+                    break;
+            }
+        }
+
+    }
+
+    /// <summary>
+    /// Загрузка доп информации по выбранной записи
+    /// </summary>
+    /// <param name="sel"></param>
+    private void LoadSubData(CPtableModel sel)
+    {
+        ClearSubData();
+
+        switch (SelectedCP.CheckPointId)
+        {
+            case 12:    // КТ-0
+                break;
+            case 13:    // КТ-"Упаковка"
+                var packedBarCode = CPPackageContext.CheckPointDataPackages.Include(e=>e.CheckPointData).FirstOrDefault(e => e.BarCode == sel.BarCode);
+                SelectedPackBarCode = packedBarCode.CheckPointData.FirstOrDefault();
+                PackageSerial = packedBarCode.PackageSerial;
+                break;
+            case 14:    // КТ-"Автоотправка"    
+                break;
+            case 15:    // КТ-"Метра" 
+                switch(sel.Name)
+                {
+                    case "Программатор":
+                        SelectedProgrammer = CPMetraContext.CheckPointDataProgrammers.Find(sel.Id);
+                        break;
+                    case "УФК1":
+                        SelectedUFK1 = CPMetraContext.CheckPointDataUfk1s.Find(sel.Id);
+                        if(SelectedUFK1?.Jsontest != null)
+                        {
+                            SelectUfk1Test = JsonConvert.DeserializeObject<Dictionary<string, string>>(SelectedUFK1?.Jsontest);                   
+                        }  
+                        break;
+                    case "УФК3":
+                        SelectedUFK3 = CPMetraContext.CheckPointDataUfk3s.Find(sel.Id);
+                        if(SelectedUFK3?.Jsontest != null)
+                        {
+                            SelectUfk3Test = JsonConvert.DeserializeObject<Dictionary<string, string>>(SelectedUFK3?.Jsontest);                   
+                        }  
+                        break;
+                    case "Принтер":
+                        SelectedPrinter = CPMetraContext.CheckPointDataPrinters.Find(sel.Id);
+                        break;
+                }
+                break;
+        }
+    }    
+
+    private void loadExcel()
+    {
+        var data = db.DownloadFile(TableMes);
+        if(data == null)
+        {
+            return;
+        }
+        DownloadService.DownloadFile("excel.xlsx",  data, "application/octet-stream");
+    }
+
+    //--------------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Получение данных из глобальной системы прослеживаемости
+    /// </summary>
+    private void LoadTraceabilityTable()
+    {
+        TraceabilityTable = TraceabilityDB.Global.AsNoTracking().ToList();
+        if (TraceabilityTable.Count > 0)
+        {
+            NotificationSuccess("Загруженно " + TraceabilityTable.Count + " записей");
+        }
+        TraceabilityTableColumns = GetTableColumns("BlazorApp1.DataContext.Traceability.Global");
+    }
+
+    /// <summary>
+    /// Получение списка полей таблицы
+    /// </summary>
+    /// <param name="ContextNamespace"></param>
+    /// <returns></returns>
+    private List<string> GetTableColumns(string ContextNamespace)
+    {
+        var clrEntityType = TraceabilityDB.Model.FindEntityType(ContextNamespace);
+        List<string> tableColumnsNames = new List<string>();
+        if (clrEntityType != null)
+        {          
+            foreach (var property in clrEntityType.GetProperties())
+            {
+                tableColumnsNames.Add(property.GetColumnName());
+            }
+        }
+        return tableColumnsNames;
+    }
+
+    /// <summary>
+    /// Выбор Контрольной точки
+    /// </summary>
+    /// <param name="cp"></param>
+    /// <param name="date"> Поиск элементов по дате. По умолчанию null</param>
+    void SelectCP(CheckPointsList cp)
+    {
+        OnCloseButtonClicked();
+        // Сброс кэша при выборе другого КТ
+        if (SelectedCP != cp)
+        {
+            SelectedCP = cp;
+            SelectedCPtable_cache.Clear();
+            SelectedCPtable.Clear();
+            SelectedProgrammer = null;
+            SelectedUFK1 = null; 
+            SelectedUFK3 = null; 
+            SelectedPrinter = null;
+            SelectUfk1Test = null;
+            SelectUfk3Test = null;
+
+            SelectedPackBarCode = null;
+            SelectedBox = null;
+        }
+
+        switch (cp.CheckPointId)
+        {
+            case 12:    // КТ-0
+                break;
+            case 13:    // КТ-"Упаковка"
+                if (SelectedCPtable_cache.Count == 0)
+                {
+                    LoadPackageData(true);
+                }
+                else
+                {
+                    // Восстановление из кэша
+                    SelectedCPtable = SelectedCPtable_cache;
+                }
+                break;
+            case 14:    // КТ-"Автоотправка"    
+                break;
+            case 15:    // КТ-"Метра"
+                if (SelectedCPtable_cache.Count == 0)
+                {
+                    LoadMetraData(true);
+                }
+                else
+                {
+                    // Восстановление из кэша
+                    SelectedCPtable = SelectedCPtable_cache;
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Загрузка данных с КТ Метра
+    /// </summary>
+    /// <param name="date">Вывод данных за указанный день</param>
+    private void LoadMetraData(bool defaultData = false)
+    {
+        LoadingInProgress = true;
+        List<
+        BlazorApp1.DataContext.Checkpoints.CheckPointMetra.CheckPointData> table = new List<BlazorApp1.DataContext.Checkpoints.CheckPointMetra.CheckPointData>();
+
+        SelectedCPtable.Clear();
+        if (defaultData)
+        {
+            table = CPMetraContext.CheckPointData
+            .Include(c => c.CheckPointDataUfk1s)
+            .Include(c => c.CheckPointDataUfk3s)
+            .Include(c => c.CheckPointDataProgrammers)
+            .Include(c => c.CheckPointDataPrinters)
+            .Take(1500).AsNoTracking().ToList(); 
+        }
+        else
+        {
+            switch (IndexSub)
+            {
+                case 1:     // Поиск по Баркоду
+                    table = CPMetraContext.CheckPointData
+                    .Include(c => c.CheckPointDataUfk1s)
+                    .Include(c => c.CheckPointDataUfk3s)
+                    .Include(c => c.CheckPointDataProgrammers)
+                    .Include(c => c.CheckPointDataPrinters)
+                    .Where(e=>e.BarCode == BarCode).AsNoTracking().ToList();
+                    break;
+
+                case 2:     // Поиск по Серийному номеру
+                    List<string> barCodes = new List<string>();
+                    var tablePrinter = CPMetraContext.CheckPointDataPrinters.AsNoTracking().ToList();
+                    foreach(var item in tablePrinter)
+                    {
+                        if(item.Serial == Serial)
+                        {
+                            barCodes.Add(item.LocalBarCode);
+                        }
+                    }
+                    var tableUfk3 = CPMetraContext.CheckPointDataUfk3s.AsNoTracking().ToList();
+                    foreach(var item in tableUfk3)
+                    {
+                        if(item.Serial == Serial)
+                        {
+                            barCodes.Add(item.LocalBarCode);
+                        }
+                    }
+                    var tableUfk1 = CPMetraContext.CheckPointDataUfk1s.AsNoTracking().ToList();
+                    foreach(var item in tableUfk1)
+                    {
+                        if(item.Serial == Serial)
+                        {
+                            barCodes.Add(item.LocalBarCode);
+                        }
+                    }
+
+                    table = CPMetraContext.CheckPointData
+                    .Include(c => c.CheckPointDataUfk1s)
+                    .Include(c => c.CheckPointDataUfk3s)
+                    .Include(c => c.CheckPointDataProgrammers)
+                    .Include(c => c.CheckPointDataPrinters)
+                    .Where(e=> barCodes.Any(d=> d == e.BarCode)).AsNoTracking().ToList();
+                    break;
+
+                case 3:     // Поиск по Дате
+                    DateTime startDate = StartDate.Value.Date;
+                    DateTime endDate = EndDate.Value.Date;
+
+                    table = CPMetraContext.CheckPointData
+                    .Include(c => c.CheckPointDataUfk1s)
+                    .Include(c => c.CheckPointDataUfk3s)
+                    .Include(c => c.CheckPointDataProgrammers)
+                    .Include(c => c.CheckPointDataPrinters)
+                    .Where(e=>e.TimeCheck.Date >= startDate && e.TimeCheck.Date <= endDate).AsNoTracking().ToList();
+                    break;
+
+                case 4:     // Поиск по ICCID
+                    List<string> barCodesICCID = new List<string>();
+
+                    var tableUfk3ICCID = CPMetraContext.CheckPointDataUfk3s.AsNoTracking().ToList();
+                    foreach(var item in tableUfk3ICCID)
+                    {
+                        if(item.Iccid == ICCID)
+                        {
+                            barCodesICCID.Add(item.LocalBarCode);
+                        }
+                    }
+                    if (barCodesICCID.Count > 0)
+                    {
+                        table = CPMetraContext.CheckPointData
+                        .Include(c => c.CheckPointDataUfk1s)
+                        .Include(c => c.CheckPointDataUfk3s)
+                        .Include(c => c.CheckPointDataProgrammers)
+                        .Include(c => c.CheckPointDataPrinters)
+                        .Where(e => barCodesICCID.Any(d => d == e.BarCode)).AsNoTracking().ToList();
+                    }
+                    break;
+            }
+        }
+        foreach (var item in table)
+        {
+            // Получить имя и ошибку последнего шага на КТ
+            if (item.CheckPointDataPrinters.Count != 0)
+            {
+                CPtableModel newElem = new CPtableModel()
+                    {
+                        BarCode = item.BarCode,
+                        ProductId = item.ProductId,
+                        CheckTime = item.TimeCheck,
+                        Result = item.ResultTest
+                    };
+                var query = from printer in CPMetraContext.CheckPointDataPrinters
+                            where printer.LocalBarCode == item.BarCode
+                            select new
+                            {
+                                Error = printer.Result,
+                                Name = "Принтер",
+                                Date = printer.Time,
+                                Id = printer.Id
+                            };
+                var list = query.ToList();
+                if (list.Count > 0)
+                {
+                    // Выбор последней записи
+                    var lastItem = list.MaxBy(e => e.Date);
+                    newElem.Error = lastItem.Error.ToString();
+                    newElem.Name = lastItem.Name;
+                    newElem.Id = lastItem.Id;
+                }
+                SelectedCPtable.Add(newElem);
+            }
+            if (item.CheckPointDataUfk3s.Count != 0)
+            {
+                CPtableModel newElem = new CPtableModel()
+                    {
+                        BarCode = item.BarCode,
+                        ProductId = item.ProductId,
+                        CheckTime = item.TimeCheck,
+                        Result = item.ResultTest
+                    };
+                var query = from UFK3 in CPMetraContext.CheckPointDataUfk3s
+                            where UFK3.LocalBarCode == item.BarCode
+                            select new
+                            {
+                                Error = UFK3.Error,
+                                Name = "УФК3",
+                                Date = UFK3.TimeStop,
+                                Id = UFK3.Id
+                            };
+                var list = query.ToList();
+                if (list.Count > 0)
+                {
+                    // Выбор последней записи
+                    var lastItem = list.MaxBy(e => e.Date);
+                    newElem.Error = lastItem.Error;
+                    newElem.Name = lastItem.Name;
+                    newElem.Id = lastItem.Id;
+                }
+                SelectedCPtable.Add(newElem);
+            }
+            if (item.CheckPointDataUfk1s.Count != 0)
+            {
+                CPtableModel newElem = new CPtableModel()
+                    {
+                        BarCode = item.BarCode,
+                        ProductId = item.ProductId,
+                        CheckTime = item.TimeCheck,
+                        Result = item.ResultTest
+                    };
+                var query = from UFK1 in CPMetraContext.CheckPointDataUfk1s
+                            where UFK1.LocalBarCode == item.BarCode
+                            select new
+                            {
+                                Error = UFK1.Error,
+                                Name = "УФК1",
+                                Date = UFK1.TimeStop,
+                                Id = UFK1.Id
+                            };
+                var list = query.ToList();
+                if (list.Count > 0)
+                {
+                    // Выбор последней записи
+                    var lastItem = list.MaxBy(e => e.Date);
+                    newElem.Error = lastItem.Error;
+                    newElem.Name = lastItem.Name;
+                    newElem.Id = lastItem.Id;
+                }
+                SelectedCPtable.Add(newElem);
+            }
+            if (item.CheckPointDataProgrammers.Count != 0)
+            {
+                CPtableModel newElem = new CPtableModel()
+                    {
+                        BarCode = item.BarCode,
+                        ProductId = item.ProductId,
+                        CheckTime = item.TimeCheck,
+                        Result = item.ResultTest
+                    };
+                var query = from prog in CPMetraContext.CheckPointDataProgrammers
+                            where prog.LocalBarCode == item.BarCode
+                            select new
+                            {
+                                Error = prog.Error,
+                                Name = "Программатор",
+                                Date = prog.TimeStop,
+                                Id = prog.Id
+                            };
+                var list = query.ToList();
+                if (list.Count > 0)
+                {
+                    // Выбор последней записи
+                    var lastItem = list.MaxBy(e => e.Date);
+                    newElem.Error = lastItem.Error;
+                    newElem.Name = lastItem.Name;
+                    newElem.Id = lastItem.Id;
+                }
+                SelectedCPtable.Add(newElem);
+            }
+
+            // Сохранение в кэш
+            SelectedCPtable_cache = SelectedCPtable;
+        }
+        if(SelectedCPtable.Count > 0)
+        {
+            NotificationSuccess("Найдено " + SelectedCPtable.Count + " записей");    
+        }
+        else
+            NotificationFail("Ничего не найдено");  
+        LoadingInProgress = false;
+    }
+
+    /// <summary>
+    ///  Загрузить данные КТ Упаковка
+    /// </summary>
+    /// <param name="date"></param>
+    private void LoadPackageData(bool defaultData = false)
+    {
+        List<BlazorApp1.DataContext.Checkpoints.CheckPointPackaging.CheckPointDataPackages> table = new List<DataContext.Checkpoints.CheckPointPackaging.CheckPointDataPackages>();
+        if (defaultData)
+        {
+            table = CPPackageContext.CheckPointDataPackages.Include(e => e.CheckPointData).Include(e => e.PackageSerialNavigation).Take(500).AsNoTracking().ToList();
+        }
+        else
+        {
+            switch (IndexSub)
+            {
+                case 1:     // Поиск по Баркоду
+                    table = CPPackageContext.CheckPointDataPackages
+                    .Include(e => e.CheckPointData)
+                    .Include(e => e.PackageSerialNavigation)
+                    .Where(e => e.BarCode == BarCode).AsNoTracking().ToList();
+                    break;
+
+                case 2:     // Поиск по Серийному номеру
+                    var dataCheckPoint = CPPackageContext.CheckPointData.FirstOrDefault(e => e.SerialNumber == Serial);
+                    if (dataCheckPoint != null)
+                    {
+                        table = CPPackageContext.CheckPointDataPackages
+                        .Include(e => e.CheckPointData)
+                        .Include(e => e.PackageSerialNavigation)
+                        .Where(e => e.BarCode == dataCheckPoint.BarCode).AsNoTracking().ToList();
+                    }
+                    break;
+
+                case 3:     // Поиск по Дате
+                    DateTime startDate = StartDate.Value.Date;
+                    DateTime endDate = EndDate.Value.Date;
+
+                    table = CPPackageContext.CheckPointDataPackages
+                    .Include(e => e.CheckPointData)
+                    .Include(e => e.PackageSerialNavigation)
+                    .Where(c => ((c.PackageSerialNavigation.Date >= startDate) & (c.PackageSerialNavigation.Date <= EndDate))).AsNoTracking().ToList();
+                    break;
+
+                case 4:     // Поиск по ICCID
+                    var dataIccid = CPPackageContext.CheckPointData.First(e => e.Iccid == ICCID);
+                    if (dataIccid != null)
+                    {
+                        table = CPPackageContext.CheckPointDataPackages
+                        .Include(e => e.CheckPointData)
+                        .Include(e => e.PackageSerialNavigation)
+                        .Where(e => e.BarCode == dataIccid.BarCode).AsNoTracking().ToList();
+                    }
+                    break;
+            }
+        }
+        foreach(var item in table)
+        {
+            CPtableModel newElem = new CPtableModel()
+            {
+                BarCode = item.BarCode,
+                ProductId = Int32.Parse( item.CheckPointData.FirstOrDefault().ProductKey),
+                CheckTime = item.CheckPointData.FirstOrDefault().PackData,
+                Result = true,
+                Name = "КТ-Упаковка"
+            };
+            SelectedCPtable.Add(newElem);
+            // Сохранение в кэш
+            SelectedCPtable_cache = SelectedCPtable;
+        }
+        if(SelectedCPtable.Count > 0)
+        {
+            NotificationSuccess("Найдено " + SelectedCPtable.Count + " записей");    
+        }
+        else
+            NotificationFail("Ничего не найдено");
+    }
+}    

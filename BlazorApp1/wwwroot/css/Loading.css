@@ -1,0 +1,159 @@
+﻿/* Стиль для ожидания загрузки данных для страницы на сайте */
+
+:root {
+    --spinner-size: 3rem;
+    --dot-size: calc(var(--spinner-size) / 5);
+    --duration: 5s;
+    --delay: calc(var(--duration) / 60);
+}
+
+html {
+    height: 100%;
+}
+
+
+
+@-webkit-keyframes rotate {
+    from {
+        transform: translateX(0) translateY(0);
+    }
+
+    20% {
+        transform: translateX(0) translateY(0);
+    }
+
+    25% {
+        transform: translateX(0) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    45% {
+        transform: translateX(0) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    50% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    70% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    75% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(0);
+    }
+
+    95% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(0);
+    }
+}
+
+@keyframes rotate {
+    from {
+        transform: translateX(0) translateY(0);
+    }
+
+    20% {
+        transform: translateX(0) translateY(0);
+    }
+
+    25% {
+        transform: translateX(0) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    45% {
+        transform: translateX(0) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    50% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    70% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(calc(var(--spinner-size) - var(--dot-size)));
+    }
+
+    75% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(0);
+    }
+
+    95% {
+        transform: translateX(calc(var(--spinner-size) - var(--dot-size))) translateY(0);
+    }
+}
+
+.spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: var(--spinner-size);
+    width: var(--spinner-size);
+    transform: translateX(-50%) translateY(-50%);
+}
+
+    .spinner > .dot {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        filter: url('#goo');
+    }
+
+        .spinner > .dot:nth-of-type(1):before {
+            -webkit-animation-delay: var(--delay);
+            animation-delay: var(--delay);
+        }
+
+        .spinner > .dot:nth-of-type(2) {
+            transform: rotate(90deg);
+        }
+
+            .spinner > .dot:nth-of-type(2):after {
+                -webkit-animation-delay: calc(var(--duration) / 12);
+                animation-delay: calc(var(--duration) / 12);
+            }
+
+            .spinner > .dot:nth-of-type(2):before {
+                -webkit-animation-delay: calc(var(--duration) / 12 + var(--delay));
+                animation-delay: calc(var(--duration) / 12 + var(--delay));
+            }
+
+        .spinner > .dot:nth-of-type(3) {
+            transform: rotate(180deg);
+        }
+
+            .spinner > .dot:nth-of-type(3):after {
+                -webkit-animation-delay: calc(var(--duration) / 6);
+                animation-delay: calc(var(--duration) / 6);
+            }
+
+            .spinner > .dot:nth-of-type(3):before {
+                -webkit-animation-delay: calc(var(--duration) / 6 + var(--delay));
+                animation-delay: calc(var(--duration) / 6 + var(--delay));
+            }
+
+        .spinner > .dot:after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: black;
+            height: calc(var(--dot-size));
+            width: calc(var(--dot-size));
+            border-radius: 50%;
+            -webkit-animation: rotate var(--duration) linear infinite;
+            animation: rotate var(--duration) linear infinite;
+        }
+
+        .spinner > .dot:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(0, 0, 0, .4);
+            height: var(--dot-size);
+            width: var(--dot-size);
+            border-radius: 50%;
+            -webkit-animation: rotate var(--duration) linear infinite;
+            animation: rotate var(--duration) linear infinite;
+        }

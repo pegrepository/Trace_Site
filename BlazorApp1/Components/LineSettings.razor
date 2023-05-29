@@ -1,0 +1,384 @@
+﻿@page "/linesettings"
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using System.Linq
+@using Microsoft.EntityFrameworkCore;
+@using Newtonsoft.Json
+
+@inject IJSRuntime JsRuntime
+@inject NavigationManager _navigationManager
+
+<PageTitle>Настройки линии</PageTitle>
+
+@if ((allProductLines == null) || (user == null))
+{
+    <div class='spinner'>
+        <div class='dot'></div>
+        <div class='dot'></div>
+        <div class='dot'></div>
+    </div>
+    <svg>
+        <defs>
+            <filter id='goo'>
+                <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
+                <feColorMatrix in='blur' mode='matrix' values='
+                1 0 0 0 0
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 50 -8' result='goo' />
+                <feBlend in='SourceGraphic' in2='goo' />
+            </filter>
+        </defs>
+    </svg>
+}
+else
+{
+    @if (!PermissionLevel("Admin"))
+    {
+        <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
+    }
+    else
+    {
+        <EditForm Model="allProductLines">
+            <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => Update(allProductLines.SingleOrDefault(c=>c.LineName==ProductStr)))">
+                @foreach (var ProductStr in allProductLines)
+                {
+            <option value="@ProductStr.LineName">@ProductStr.LineName</option>
+                }
+    </InputSelect>@*Качественный InputSelect*@
+</EditForm>
+        <p></p>
+
+        <div id="line_grid">
+            @if (PermissionLevel("Admin"))
+            {
+                <div>
+                    <div id="sub_line_grid">
+                        <div>
+                            <button @onclick="Create">Создать программу</button>
+                        </div>
+                        <div>
+                            @if (selectedProductLine != null)
+                            {
+                                <button @onclick="SaveResult">Сохранить изменения</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div></div>
+                <div>
+                    @if (selectedProductLine != null)
+                    {
+                        <button class="red_color_btn" @onclick="@(e => Delete())">Удалить программу</button>
+                    }
+
+                </div>
+            }
+        </div>
+        @if (selectedProductLine != null)
+        {
+            <div id="grid" style="border: 1px solid;">
+                <div>
+                    <div class="menu_headers">Имя производственного процесса: </div>
+                    <input size="100%" @bind="selectedProductLine.LineName" />
+                    <p></p>
+                    <div class="menu_headers">Наличие КТ-0: </div>
+                    <div class="box">
+                        <input id="one" type="checkbox" @bind="selectedProductLine.LineZeroCheckPoint">
+                        <span class="check"></span>
+                        <label for="one">Статус</label>
+                    </div>
+                    <div class="menu_headers">Список КТ в формате JSON: </div>
+                    <textarea style="width:100%" @bind="selectedProductLine.LineCheckPointsJson" />
+                    <p></p>
+
+                    <EditForm Model="allProducts">
+                        <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(selectedProductLine , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
+                            @foreach (var data in allProducts)
+                            {
+                                <option value="@data.ProductName">@data.ProductName</option>
+                            }
+                        </InputSelect>@*Качественный InputSelect*@
+                    </EditForm>
+
+        <p></p>
+    </div>
+    <div>
+        @if (selectedProductLine != null & selectedProductLine.LineProductId != null)
+                    {
+                        <div class="menu_headers">Список контрольных точек производственного процесса: </div>
+                        <p></p>
+                        <div id="sub_line_grid">
+                            <div>
+                                <EditForm Model="allCheckPoints">
+                                    <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string CheckpointName) => SelectCheckPoint(allCheckPoints.SingleOrDefault(c => c.CheckPointName==CheckpointName)))">
+                                        @foreach (var checkpoint in allCheckPoints)
+                                        {
+                                                <option value="@checkpoint.CheckPointName">@checkpoint.CheckPointName</option>
+                                        }
+                                    </InputSelect>@*Качественный InputSelect*@
+                                </EditForm>
+
+                @*<details name="product" class="custom-select">
+                    <summary class="radios main_header">
+                        <input type="radio" name="itemproductcp" id="@GetId(true,false)" title="Выберите следующую контрольную точку..." checked>
+                        @foreach (var checkpoint in allCheckPoints)
+                                        {
+                                            <input type="radio" name="itemproductcp" id="@GetId(false,false)" title="@checkpoint.CheckPointName">
+                                        }
+                                    </summary>
+                                    <ul class="list">
+                                        @foreach (var checkpoint in allCheckPoints)
+                                        {
+                                            <li>
+                                                <label @onclick="@(e => SelectCheckPoint(checkpoint))" for="@GetId(false,true)">
+                                                    @checkpoint.CheckPointName
+                                                </label>
+                                            </li>
+                                        }
+                                    </ul>
+                                </details>*@
+                            </div>
+                            <div>
+                                <button @onclick="CreateNewLineCheckPoint">Добавить проверку КТ</button>
+                            </div>
+                        </div>
+                        <p></p>
+                        <table class="tableClass" style="max-height:250px">
+                            <thead>
+                                <tr>
+                                    <th>Название контрольной точки</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var checkpoint in LineCheckPoints)
+                                {
+                                    <tr>
+                                        <td>@checkpoint.Value</td>
+                                        <button class="red_color_btn" @onclick="@(e => DeleteCheckPoint(checkpoint.Key))">Удалить</button>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        }
+
+    }
+}
+
+
+@code {
+    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    string selectedItem = "";
+    private async void Load()
+    {
+        Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
+        user = new(authState.Result.User.Identity.Name, "Настройки линии");
+
+        allProductLines = db.LineSettings.ToList();
+        allCheckPoints = dbCheckPoints.CheckPointsLists.ToList();
+        allProducts = dbProducts.ProductSettings.ToList();
+
+        //SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
+    }
+
+    //private DataBase.SettingSenderMan.SettingsendermanContext db = new DataBase.SettingSenderMan.SettingsendermanContext();
+    //private ICollection<DataBase.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
+
+    private DataContext.Products.ProductsContext dbProducts = new();
+    private ICollection<DataContext.Products.ProductSettings> allProducts{ get; set; }
+    private DataContext.Products.ProductSettings selectedProduct { get; set; }
+
+    private DataContext.Productionlines.ProductionLinesContext db = new();
+    private ICollection<DataContext.Productionlines.LineSettings> allProductLines{ get; set; }
+    private DataContext.Productionlines.LineSettings selectedProductLine { get; set; }
+
+    private DataContext.Checkpoints.CheckPointsContext dbCheckPoints = new();
+    private ICollection<DataContext.Checkpoints.CheckPointsList> allCheckPoints{ get; set; }
+    private DataContext.Checkpoints.CheckPointsList selectedCheckPoint{ get; set; }
+
+    private Dictionary<int,string> LineCheckPoints{ get; set; }
+
+    public int elementId { get; set; } = 0;
+    public List<int> tupleElements;
+    public int counter { get; set; } = 0;
+
+    private bool Adding { get; set; } = false;
+
+
+    /// <summary>
+    /// Индексация html элементов
+    /// </summary>
+    /// <param name="start"></param>
+    /// <param name="repeat"></param>
+    /// <returns></returns>
+    public int GetId(bool start, bool repeat)
+    {
+        elementId++;
+        if (start)
+        {
+            tupleElements = new List<int>();
+        }
+        if(tupleElements != null & !repeat)
+        {
+            if (!start)
+            {
+                tupleElements.Add(elementId);
+            }
+        }
+        if (repeat)
+        {
+            if(tupleElements.Count > 0)
+            {
+                elementId = tupleElements.First();
+                tupleElements.RemoveAt(0);   
+            }
+            else
+            {
+                tupleElements = null;
+            }
+
+        }
+
+        return elementId;
+    }
+
+    /// <summary>
+    /// Проверка уровня доступа
+    /// </summary>
+    /// <param name="level"></param>
+    /// <returns></returns>
+    private bool PermissionLevel(string level)
+    {
+        foreach(var rule in user.rulesList)
+        {
+            if(rule.PermissionLevel == level)
+            {
+                return true;
+            }            
+        }
+        return false;
+    }
+
+    private void SelectProduct(DataContext.Productionlines.LineSettings line, DataContext.Products.ProductSettings izdel)
+    {
+        selectedProduct = izdel;
+        line.LineProductId = selectedProduct.ProductId;
+    }
+
+    private void SelectCheckPoint(DataContext.Checkpoints.CheckPointsList checkpoint)
+    {
+        selectedCheckPoint = checkpoint;
+    }
+
+    /// <summary>
+    /// Добавить новое изделие
+    /// </summary>
+    private void Create()
+    {
+        DisposeForm();
+        DataContext.Productionlines.LineSettings line = new();
+        selectedProductLine = line;
+        Adding = true;
+    }
+
+    /// <summary>
+    /// Удалить существующее изделие
+    /// </summary>
+    private async void Delete()
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить КТ: \"" + selectedProductLine.LineName + "\" ?"))
+        {     
+            db.Remove(selectedProductLine);
+            db.SaveChanges();
+            DisposeForm();
+            _navigationManager.NavigateTo("/linesettings", true);
+        }
+    }
+
+    /// <summary>
+    /// Сохранить изменения
+    /// </summary>
+    private async void SaveResult()
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для производственного процесса: \"" + selectedProductLine.LineName + "\" ?"))
+        {
+            if (Adding)
+            {
+                AddDataBase();
+            }
+            else
+            {
+                db.Entry(selectedProductLine).State = EntityState.Modified;
+                db.SaveChanges();                    
+            }        
+            _navigationManager.NavigateTo("/linesettings", true);   
+        }       
+    }
+
+    /// <summary>
+    /// Добавление новой программы в БД
+    /// </summary>
+    private void AddDataBase()
+    {
+        try
+        {
+            if(!string.IsNullOrEmpty(selectedProductLine.LineName))
+            {                
+                db.Add(selectedProductLine);
+                db.SaveChanges();
+            } 
+        }
+        catch
+        {
+
+        }        
+    }
+
+    private void CreateNewLineCheckPoint()
+    {
+        if(selectedCheckPoint==null){ return; }
+        if(selectedProductLine.LineCheckPointsJson != null)
+        {
+            LineCheckPoints = JsonConvert.DeserializeObject<Dictionary<int, string>>(selectedProductLine.LineCheckPointsJson);
+        }       
+        LineCheckPoints.Add(selectedCheckPoint.CheckPointId, selectedCheckPoint.CheckPointName);
+        selectedProductLine.LineCheckPointsJson = JsonConvert.SerializeObject(LineCheckPoints);
+    }
+    private async void DeleteCheckPoint(int checkpointid)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить проверку КТ ?"))
+        {
+            LineCheckPoints.Remove(checkpointid);
+            selectedProductLine.LineCheckPointsJson = JsonConvert.SerializeObject(LineCheckPoints);
+        }
+        this.StateHasChanged();
+    }
+
+    //Обновелние формы при выборе другого изделия
+    private async void Update(DataContext.Productionlines.LineSettings line)
+    {
+        selectedProductLine = line;
+
+        if(selectedProductLine.LineCheckPointsJson != null)
+        {
+            LineCheckPoints = JsonConvert.DeserializeObject<Dictionary<int, string>>(selectedProductLine.LineCheckPointsJson);
+        }
+        else
+        {
+            LineCheckPoints = new();
+        }
+        selectedProduct = null;
+        selectedCheckPoint = null;
+    }
+    private void DisposeForm()
+    {
+        LineCheckPoints = new();
+        selectedProductLine = null;
+        selectedProduct = null;
+        selectedCheckPoint = null;
+    }
+}

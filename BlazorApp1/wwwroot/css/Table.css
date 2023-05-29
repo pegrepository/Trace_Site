@@ -1,0 +1,63 @@
+﻿/* Стиль для таблиц на форме программы автоотправки */
+
+.tableClass {
+    font-family: "Times New Roman", cursive, serif;
+    display: inline-block;
+    text-align: center;
+    left: 50%;
+    top: 10%;
+    width: auto;
+    background-position: center center;
+    border-right: 0px !important;
+    border-left: 0px !important; 
+    overflow-y:auto;
+    max-height:400px;
+}
+
+    .tableClass th, .tableClass td {
+        border: 1px solid black;
+        padding: 10px;
+        text-align: center;
+        vertical-align: middle;
+        position: relative;        
+    }
+    .tableClass tr:hover td {
+        background: white;
+        overflow: hidden;
+    }
+        .tableClass tr:hover td:after {
+            content: '';
+            position: relative;
+            top: 0px;
+            right: 0px;
+            bottom: 0px;
+            left: 0px;
+            width: 105%;
+            border-top: 3px solid orange;
+            border-bottom: 3px solid orange;
+        }
+
+    /* Рамка слева у первой ячейки */
+        .tableClass tr:hover td:first-child:after {
+            border-left: 1px solid orange;
+        }
+
+    /* Рамка справа у последний ячейки */
+        .tableClass tr:hover td:last-child:after {
+            border-right: 3px solid orange;
+            width: auto;
+        }
+
+
+.menu_headers {
+    border-style: outset;
+    background-color: white;
+    font-family: 'Times New Roman';
+    font-weight: bold;
+    font-size: 20px;
+}
+.main_header {
+    font-family: 'Times New Roman';
+    font-weight: bold;
+    font-size: 20px;
+}

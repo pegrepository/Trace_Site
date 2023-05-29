@@ -1,0 +1,17 @@
+﻿#grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 5vw;
+}
+
+#line_grid {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    grid-gap: 20vw;
+}
+
+#sub_line_grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 1vw;
+}
