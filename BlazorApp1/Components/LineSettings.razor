@@ -10,7 +10,7 @@
 
 <PageTitle>Настройки линии</PageTitle>
 
-@if ((allProductLines == null) || (user == null))
+@if ((allProductLines == null))
 {
     <div class='spinner'>
         <div class='dot'></div>
@@ -33,7 +33,7 @@
 }
 else
 {
-    @if (!PermissionLevel("Admin"))
+    @if (!PermissionLevelPerem)
     {
         <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
     }
@@ -50,7 +50,7 @@ else
         <p></p>
 
         <div id="line_grid">
-            @if (PermissionLevel("Admin"))
+            @if (PermissionLevelPerem)
             {
                 <div>
                     <div id="sub_line_grid">
@@ -60,7 +60,7 @@ else
                         <div>
                             @if (selectedProductLine != null)
                             {
-                                <button @onclick="SaveResult">Сохранить изменения</button>
+                                <button @onclick="@(e=>SaveResult(selectedProductLine))">Сохранить изменения</button>
                             }
                         </div>
                     </div>
@@ -69,7 +69,7 @@ else
                 <div>
                     @if (selectedProductLine != null)
                     {
-                        <button class="red_color_btn" @onclick="@(e => Delete())">Удалить программу</button>
+                        <button class="red_color_btn" @onclick="@(e => Delete(selectedProductLine.LineId.ToString(), selectedProductLine.LineName))">Удалить программу</button>
                     }
 
                 </div>
@@ -171,32 +171,76 @@ else
 
 @code {
     private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+
+    static bool PermissionLevelPerem = false;
+
+    string UserName = "";
+
     protected override async Task OnInitializedAsync() => await Task.Run(Load);
+
     string selectedItem = "";
+
     private async void Load()
     {
         Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
-        user = new(authState.Result.User.Identity.Name, "Настройки линии");
+        try
+        {
+            //Получаем данные с таблиц Списка работников, Cтраниц и правил
+            PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Настройки линии");
+            UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
+            GettingLineSettingsDataFromApi();
+        }
+        catch (Exception ex)
+        {
+            string exe = ex.Message.ToString();
+        }
 
-        allProductLines = db.LineSettings.ToList();
-        allCheckPoints = dbCheckPoints.CheckPointsLists.ToList();
-        allProducts = dbProducts.ProductSettings.ToList();
+
+
 
         //SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
+    }
+
+    private void GettingLineSettingsDataFromApi()
+    {
+        Parallel.Invoke(
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    allProductLines = JsonConvert.DeserializeObject<List<DataContext.Productionlines.LineSettings>>(client.DownloadString($"http://localhost:5139/api/ProductionLines/GetAllFrom_LineSettings"));//Посылаем запрос на получение строки
+                }
+            },
+
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings"));//Посылаем запрос на получение строки
+                }
+            },
+
+            () =>
+            {
+                using (var client2 = new System.Net.WebClient())
+                {
+                    allCheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client2.DownloadString($"http://localhost:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));//Посылаем запрос на получение строки
+                }
+            });
     }
 
     //private DataBase.SettingSenderMan.SettingsendermanContext db = new DataBase.SettingSenderMan.SettingsendermanContext();
     //private ICollection<DataBase.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
 
-    private DataContext.Products.ProductsContext dbProducts = new();
+    //private DataContext.Products.ProductsContext dbProducts = new();
     private ICollection<DataContext.Products.ProductSettings> allProducts{ get; set; }
     private DataContext.Products.ProductSettings selectedProduct { get; set; }
 
-    private DataContext.Productionlines.ProductionLinesContext db = new();
+    // private DataContext.Productionlines.ProductionLinesContext db = new();
     private ICollection<DataContext.Productionlines.LineSettings> allProductLines{ get; set; }
     private DataContext.Productionlines.LineSettings selectedProductLine { get; set; }
 
-    private DataContext.Checkpoints.CheckPointsContext dbCheckPoints = new();
+    //private DataContext.Checkpoints.CheckPointsContext dbCheckPoints = new();
     private ICollection<DataContext.Checkpoints.CheckPointsList> allCheckPoints{ get; set; }
     private DataContext.Checkpoints.CheckPointsList selectedCheckPoint{ get; set; }
 
@@ -251,17 +295,7 @@ else
     /// </summary>
     /// <param name="level"></param>
     /// <returns></returns>
-    private bool PermissionLevel(string level)
-    {
-        foreach(var rule in user.rulesList)
-        {
-            if(rule.PermissionLevel == level)
-            {
-                return true;
-            }            
-        }
-        return false;
-    }
+
 
     private void SelectProduct(DataContext.Productionlines.LineSettings line, DataContext.Products.ProductSettings izdel)
     {
@@ -288,35 +322,61 @@ else
     /// <summary>
     /// Удалить существующее изделие
     /// </summary>
-    private async void Delete()
+    private async void Delete(string LineId, string LineName)
     {
-        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить КТ: \"" + selectedProductLine.LineName + "\" ?"))
-        {     
-            db.Remove(selectedProductLine);
-            db.SaveChanges();
+        try
+        {
+            //TODO: Проверить
+            if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить КТ: \"" + selectedProductLine.LineName + "\" ?"))
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    await client.DeleteAsync($"http://localhost:5139/api/ProductionLines/DeleteString_LineSettings/{LineId}/{LineName}");
+                }
+            }
             DisposeForm();
             _navigationManager.NavigateTo("/linesettings", true);
         }
+        catch
+        {
+
+        }
+
+        //db.Remove(selectedProductLine);
+        //db.SaveChanges();
+
+
     }
 
     /// <summary>
     /// Сохранить изменения
     /// </summary>
-    private async void SaveResult()
+
+    private async void SaveResult(DataContext.Productionlines.LineSettings ProductLine)
     {
+        //TODO: Проверить
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для производственного процесса: \"" + selectedProductLine.LineName + "\" ?"))
         {
-            if (Adding)
+
+            using (HttpClient client = new HttpClient())
             {
-                AddDataBase();
+                string Json = JsonConvert.SerializeObject(ProductLine);
+                HttpContent cont = new StringContent("");
+                client.PutAsJsonAsync($"http://localhost:5139/api/ProductionLines/Put_LineSettings/{Json}", cont);
             }
-            else
-            {
-                db.Entry(selectedProductLine).State = EntityState.Modified;
-                db.SaveChanges();                    
-            }        
-            _navigationManager.NavigateTo("/linesettings", true);   
-        }       
+
+            //if (Adding)
+            //{
+            //    AddDataBase();
+            //}
+            //else
+            //{
+            //    db.Entry(selectedProductLine).State = EntityState.Modified;
+            //    db.SaveChanges();
+            //}
+            _navigationManager.NavigateTo("/linesettings", true);
+
+        }
     }
 
     /// <summary>
@@ -324,18 +384,18 @@ else
     /// </summary>
     private void AddDataBase()
     {
-        try
-        {
-            if(!string.IsNullOrEmpty(selectedProductLine.LineName))
-            {                
-                db.Add(selectedProductLine);
-                db.SaveChanges();
-            } 
-        }
-        catch
-        {
+        //try
+        //{
+        //    if(!string.IsNullOrEmpty(selectedProductLine.LineName))
+        //    {                
+        //        db.Add(selectedProductLine);
+        //        db.SaveChanges();
+        //    } 
+        //}
+        //catch
+        //{
 
-        }        
+        //}        
     }
 
     private void CreateNewLineCheckPoint()

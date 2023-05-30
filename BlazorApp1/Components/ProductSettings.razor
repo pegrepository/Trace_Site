@@ -4,6 +4,7 @@
 @inject NavigationManager _navigationManager
 @inject IJSRuntime JsRuntime
 
+@using BlazorApp1.DataContext.Products
 @using Data.Models.Pages
 @using System.Linq
 @using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,13 @@
 @using Microsoft.AspNetCore.Mvc;
 @using FastReport
 @using FastReport.Export.Image;
+@using System.Net;
+@using System.Diagnostics;
+
 
 <PageTitle>Настройки изделия</PageTitle>
 
-@if ((allProducts == null) || (user == null))
+@if ((allProducts == null))
 {
 @*<div class='spinner'>
     <div class='dot'></div>
@@ -37,7 +41,7 @@
 }
 else
 {
-@if(!PermissionLevel("Admin"))
+@if(!PermissionLevelPerem)
 {
         <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
     }
@@ -136,7 +140,8 @@ else
                     </details>
                     <p></p>
                     <div class="menu_headers">Изображение изделия: </div>    
-                    <InputFile OnChange="LoadFilesProductImage" />
+                    <button @onclick="LoadFilesProductImage" />
+                    <label>@TestLabel</label>
                     <p></p>
                     @if(selectedProduct.ProductImage != null & !isLoading_Image)
                     {
@@ -286,7 +291,7 @@ else
                                                 </details>                                                              
                                                 </td>
                                                      
-                                        <button class="green_color_btn" @onclick="@(e => SaveTagList(data))">Сохранить</button>
+                                        <button class="green_color_btn" @onclick="@(e => SaveTagList("Products", "Post_ProductTags", data))">Сохранить</button>
                                         <button class="red_color_btn" @onclick="@(e => DeleteTagList(data))">Удалить</button>
                                     </tr>
                                 }
@@ -450,52 +455,65 @@ else
 
 
 @code {
+    //можно удалить
+    string TestLabel = "";
+
     string selectedValue = "";//Переменная для лямбда выражений InputSelect. 
 
     private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
 
-    protected override async Task OnInitializedAsync() => await Task.Run(Load);
+    static bool PermissionLevelPerem = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        using (var client = new WebClient())
+        {
+            try
+            {
+                var response =  client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings");//Посылаем запрос на получение строки
+                allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings"));
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+        Load();
+    }
+
+    private void httpGet<T>(string content, ref List<T> ForDifferentClasses)
+    {
+        try
+        {
+            ForDifferentClasses = JsonConvert.DeserializeObject<List<T>>(content);
+        }
+        catch (Exception ex)
+        {
+
+        }
+    }
+
     private async void Load()
     {
         Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
 
-        user = new(authState.Result.User.Identity.Name, "Настройки изделия");
-
-        //.Include(t => t.ProductTag)
-        //.Include(t => t.ProductTag.TagParameters)
-        //.Include(l => l.ProductTag.TagLabel)
-        //.Include(p => p.ProductTag.TagPackingList)
-        //.Include(p => p.ProductTag.TagPassport)
-
-
-        allProducts = db.ProductSettings.ToList();
-        allTags = db.ProductTags.ToList();
-        allTagParameters = db.ProductTagParameters.ToList();
-        allLabels = db.ProductLabels.ToList();
-        allPackingLists = db.ProductPackingLists.ToList();
-        allPassports = db.ProductPassports.ToList();
-    }
-
-
-    /// <summary>
-    /// Проверка уровня доступа
-    /// </summary>
-    /// <param name="level"></param>
-    /// <returns></returns>
-    private bool PermissionLevel(string level)
-    {
-        foreach(var rule in user.rulesList)
+        try
         {
-            if(rule.PermissionLevel == level)
-            {
-                return true;
-            }            
+            string UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
+            //Получаем данные с таблиц Списка работников, Cтраниц и правил
+            PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(UserName, "Настройки изделия");
+            new Thread( GettingDataFromAPI ).Start();
         }
-        return false;
+        catch (Exception ex)
+        {
+            string exe = ex.Message.ToString();
+        }
+       
     }
 
-    private BlazorApp1.DataContext.Products.ProductsContext db = new DataContext.Products.ProductsContext();
-    private ICollection<DataContext.Products.ProductSettings> allProducts { get; set; } //Выбранный для редактирования продукт
+
+    private ProductsContext db = new ProductsContext();
+    private List<DataContext.Products.ProductSettings> allProducts; //Выбранный для редактирования продукт
     private ICollection<DataContext.Products.ProductTags> allTags { get; set; } //Выбранный для редактирования продукт
     private ICollection<DataContext.Products.ProductTagParameters> allTagParameters { get; set; } //Выбранный для редактирования продукт
     private ICollection<DataContext.Products.ProductLabels> allLabels { get; set; } //Выбранный для редактирования продукт
@@ -580,7 +598,7 @@ else
     private string LoadFrxImage(byte[] image)
     {
         isLoading_Image = true;
-       
+
         try
         {
             isLoading_Image = false;
@@ -619,16 +637,19 @@ else
     /// </summary>
     /// <param name="e"></param>
     /// <returns></returns>
-    private async Task LoadFilesProductImage(InputFileChangeEventArgs e)
+    private async Task LoadFilesProductImage()
     {
-        if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".jpg"))
-        {
-            selectedProduct.ProductImage = await LoadFiles(e);           
-        }
-        else
-        {
-            await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg");
-        }        
+        //TODO: Изображение для Изделия
+        TestLabel = "Тут будет скачиваться изображение";
+
+        //if (e.GetMultipleFiles().FirstOrDefault().Name.Contains(".jpg"))
+        //{
+        //    selectedProduct.ProductImage = await LoadFiles(e);           
+        //}
+        //else
+        //{
+        //    await JsRuntime.InvokeVoidAsync("alert", "Неверный формат файла, выберите файл изображения продукта в формате .jpg");
+        //}        
     }
 
     /// <summary>
@@ -715,7 +736,7 @@ else
         {
             using (MemoryStream stream = new MemoryStream(frx_image))
             {
-                
+
                 report.Load(stream);
                 report.Prepare();
 
@@ -813,27 +834,45 @@ else
         isAdding_Passport = true;
         this.StateHasChanged();
     } 
-    
-      //Удаление скрытой копии из коллекции
-    private async void SaveTagList(DataContext.Products.ProductTags tags)
-    {
-        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + tags.TagName + "\" ?"))
-        {
-            if (!isAdding_TagsList)
-            {
-                db.Entry(tags).State = EntityState.Modified;  
-                db.SaveChanges();
-            }
-            else
-            {
-                db.Add(tags);
-                db.SaveChanges();
-                isAdding_TagsList = false;
-            }
 
-           this.StateHasChanged();
-        }          
+    //Удаление скрытой копии из коллекции
+    private async void SaveTagList<T>(string controller, string method, T tags)
+    {
+        using(HttpClient httpclient=new HttpClient())
+        {
+            try
+            {
+
+
+                HttpContent cont = new StringContent(System.Text.Json.JsonSerializer.Serialize(tags), System.Text.Encoding.UTF8, "application/json");// я так и не понял зачем это нужно
+                string RealContent = System.Text.Json.JsonSerializer.Serialize(tags);//Это то что отправляем
+                var response = await httpclient.PostAsync(($"http://localhost:5139/api/{controller}/{method}/{RealContent}"), cont);
+                var content = await response.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+
+        //if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + tags.TagName + "\" ?"))
+        //{
+        //    if (!isAdding_TagsList)
+        //    {
+        //        db.Entry(tags).State = EntityState.Modified;  
+        //        db.SaveChanges();
+        //    }
+        //    else
+        //    {
+        //        db.Add(tags);
+        //        db.SaveChanges();
+        //        isAdding_TagsList = false;
+        //    }
+
+        //   this.StateHasChanged();
+        //}          
     }
+
     //Удаление скрытой копии из коллекции
     private async void DeleteTagList(DataContext.Products.ProductTags tags)
     {
@@ -846,7 +885,7 @@ else
         }         
     }
 
-     //Удаление скрытой копии из коллекции
+    //Удаление скрытой копии из коллекции
     private async void SaveParamsList(DataContext.Products.ProductTagParameters parames)
     {
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для этикетки: \"" + parames.TagParametersName + "\" ?"))
@@ -863,7 +902,7 @@ else
                 isAdding_ParamsList = false;
             }
 
-           this.StateHasChanged();
+            this.StateHasChanged();
         }          
     }
     //Удаление скрытой копии из коллекции
@@ -895,7 +934,7 @@ else
                 isAdding_Label = false;
             }
 
-           this.StateHasChanged();
+            this.StateHasChanged();
         }          
     }
     //Удаление скрытой копии из коллекции
@@ -910,7 +949,7 @@ else
         }         
     }
 
-     //Удаление скрытой копии из коллекции
+    //Удаление скрытой копии из коллекции
     private async void SavePackingList(DataContext.Products.ProductPackingLists packinglist)
     {
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для упаковочного листа: \"" + packinglist.PackingListName + "\" ?"))
@@ -926,23 +965,23 @@ else
                 db.SaveChanges();
                 isAdding_PackingList = false;
             }
-           
-           this.StateHasChanged();
+
+            this.StateHasChanged();
         } 
-         
+
     }
     //Удаление скрытой копии из коллекции
     private async  void DeletePackingList(DataContext.Products.ProductPackingLists packinglist)
     {
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить данный вариант упаковочного листа: \"" + packinglist.PackingListName + "\" ?"))
         {
-           db.Remove(packinglist);
-           db.SaveChanges();
-           allPackingLists?.Remove(packinglist); 
-           this.StateHasChanged();
+            db.Remove(packinglist);
+            db.SaveChanges();
+            allPackingLists?.Remove(packinglist); 
+            this.StateHasChanged();
         }           
     }
-    
+
     //Удаление скрытой копии из коллекции
     private async void SavePassport(DataContext.Products.ProductPassports passport)
     {
@@ -959,7 +998,7 @@ else
                 db.SaveChanges();
                 isAdding_Passport = false;
             }
-            
+
             this.StateHasChanged();
         } 
 
@@ -1010,11 +1049,59 @@ else
         }        
     }
 
-    //Стандартное обновление
+    private void GettingDataFromAPI()
+    {
+         Parallel.Invoke(() =>
+    {
+        using (var client = new WebClient())
+        {
+            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductTags");//Посылаем запрос на получение строки                                                                                               //var content = response.Content.ReadAsStringAsync();//Получаем ответ
+            allTags = JsonConvert.DeserializeObject<List<DataContext.Products.ProductTags>>(response);
+        }
+
+    },
+    () =>
+    {
+        using (var client = new WebClient())
+        {
+            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductPassports");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            allPassports = JsonConvert.DeserializeObject<List<DataContext.Products.ProductPassports>>(response);
+        }
+    },
+     () =>
+    {
+        using (var client = new WebClient())
+        {
+            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductTagParameters");//Посылаем запрос на получение строки                                                                                                            //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            allTagParameters = JsonConvert.DeserializeObject<List<DataContext.Products.ProductTagParameters>>(response);
+
+        }
+    },
+     () =>
+    {
+        using (var client = new WebClient())
+        {
+            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductLabels");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            allLabels = JsonConvert.DeserializeObject<List<DataContext.Products.ProductLabels>>(response);
+
+        }
+    },
+     () =>
+    {
+        using (var client = new WebClient())
+        {
+            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductPackingLists");//Посылаем запрос на получение строки                                                                                                             //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            allPackingLists = JsonConvert.DeserializeObject<List<DataContext.Products.ProductPackingLists>>(response);
+        }
+    }
+    );
+    }
+
+    //Стандартное обновление  и получение всех данных по API
     private async void Update(DataContext.Products.ProductSettings product)
     {
         selectedProduct = product;
-    }   
+    }
 
     //Сохранение изменений на сервере    
     private async void SaveResult()

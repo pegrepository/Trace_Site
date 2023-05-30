@@ -2,11 +2,14 @@
 
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @using System.Linq
+@using BlazorApp1.DataContext.Permissions
 @using Microsoft.EntityFrameworkCore;
-
+@using System.Diagnostics;
+@using Newtonsoft.Json;
+ 
 <PageTitle>Обучение</PageTitle>
 
-@if ((SelectItem == null) || (user == null))
+@if ((UserName == ""))//SelectItem не понятно для чего. вырезал: (SelectItem == null) || 
 {
      <div class='spinner'>
     <div class='dot'></div>
@@ -29,7 +32,7 @@
 }
 else
 { 
-    @if(!PermissionLevel("Admin"))
+    @if(!PermissionLevelPerem)
     {
         <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
     }
@@ -129,32 +132,32 @@ else
 
 
 @code {
-    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
-    protected override async Task OnInitializedAsync() => await Task.Run(Load);
-    private async void Load()
+    private BlazorApp1.DataContext.Permissions.UserPermissions user { get; set; }
+
+    static bool PermissionLevelPerem = false;
+
+    string UserName = "";
+
+    protected override Task OnInitializedAsync() => Task.Run(()=> Load()); 
+
+    private void Load()
     {
         Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
-        user = new(authState.Result.User.Identity.Name, "Обучение");
-        SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
+        try
+        {
+            //Получаем данные с таблиц Списка работников, Cтраниц и правил
+            PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Обучение");
+            UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
+        }
+        catch (Exception ex)
+        {
+            string exe = ex.Message.ToString();
+        }
+        // Пока не знаю зачем это. Делаю затычку. 30.05.2023
+        //SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
     }
 
     private Database.SettingSenderMan.SettingSenderManContext db = new Database.SettingSenderMan.SettingSenderManContext();
     private ICollection<Database.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
-
-    /// <summary>
-    /// Проверка уровня доступа
-    /// </summary>
-    /// <param name="level"></param>
-    /// <returns></returns>
-    private bool PermissionLevel(string level)
-    {
-        foreach(var rule in user.rulesList)
-        {
-            if(rule.PermissionLevel == level)
-            {
-                return true;
-            }            
-        }
-        return false;
+    
     }
-}

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
 namespace BlazorApp1.DataContext.Permissions;
@@ -110,14 +111,22 @@ public class UserPermissions
     /// <returns></returns>
     public List<Rule> PermissionState(string UserName, string PageName)
     {
+        Stopwatch watcher = new Stopwatch();
+        watcher.Start();
         List<Rule> rulesList = new List<Rule>();
+
+
+
         using (PermissionsContext db = new PermissionsContext())
         {
+
             List<PermissionRules> rules = db.PermissionRules.
                 Where(r => r.EmployeeId == db.EmployeesList.Where(e => e.EmployeeLogin == UserName).Select(e => e.EmployeeId).FirstOrDefault()).
                 Where(p => p.WebSitePageId == db.WebSitePagesList.Where(p => p.WebSitePageName == PageName).Select(p => p.WebSitePageId).FirstOrDefault()).
                 Include(e => e.Employee).Include(p => p.WebSitePage).Include(r => r.Permission).ToList();
 
+            watcher.Stop();
+            long watc = watcher.ElapsedMilliseconds;
             //Если найдено хоть одно правило для пользователя 
             if (rules.Count != 0)
             {
@@ -180,7 +189,11 @@ public class UserPermissions
                     PermissionLevel = "User",
                     PermissionResult = true
                 });
+                watcher.Stop();
+                long watch1 = watcher.ElapsedMilliseconds;
             }
+            watcher.Stop();
+            long watch = watcher.ElapsedMilliseconds;
             return rulesList;
         }
     }
