@@ -1,13 +1,15 @@
+using BlazorApp1.SeriLog;
 using BlazorDownloadFile;
 using Majorsoft.Blazor.Components.CssEvents;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
    .AddNegotiate();
-
+Log.Logger = new LoggerConfiguration().WriteTo.File(new MyOwnCompactJsonFormatter(), "Stp-Controller_Log.txt").CreateLogger();
 builder.Services.AddAuthorization(options =>
 {
     // By default, all incoming requests will be authorized according to the default policy.

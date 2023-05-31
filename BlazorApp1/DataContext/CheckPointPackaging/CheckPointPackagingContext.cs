@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointPackaging;
+namespace BlazorApp1.DataContext.CheckPointPackaging;
 
 public partial class CheckPointPackagingContext : DbContext
 {

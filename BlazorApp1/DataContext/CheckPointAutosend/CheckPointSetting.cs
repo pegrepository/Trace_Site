@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointAutosend;
+namespace BlazorApp1.DataContext.CheckPointAutosend;
 
 public partial class CheckPointSetting
 {

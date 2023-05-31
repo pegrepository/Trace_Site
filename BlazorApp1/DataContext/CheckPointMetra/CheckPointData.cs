@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointMetra;
+namespace BlazorApp1.DataContext.CheckPointMetra;
 
 public partial class CheckPointData
 {

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointPackaging;
+namespace BlazorApp1.DataContext.CheckPointPackaging;
 
 public partial class CheckPointDataPackages
 {

@@ -4,13 +4,14 @@
 @using System.Linq
 @using Microsoft.EntityFrameworkCore;
 @using Newtonsoft.Json
+@using Serilog
 
 @inject IJSRuntime JsRuntime
 @inject NavigationManager _navigationManager
 
 <PageTitle>Настройки линии</PageTitle>
 
-@if ((allProductLines == null))
+@if (allProductLines == null)
 {
     <div class='spinner'>
         <div class='dot'></div>
@@ -40,145 +41,126 @@ else
     else
     {
         <EditForm Model="allProductLines">
-            <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => Update(allProductLines.SingleOrDefault(c=>c.LineName==ProductStr)))">
-                @foreach (var ProductStr in allProductLines)
-                {
-            <option value="@ProductStr.LineName">@ProductStr.LineName</option>
-                }
-    </InputSelect>@*Качественный InputSelect*@
-</EditForm>
-        <p></p>
+            <InputSelect class="SelectElementStyle" Value="@selectedItem" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => Update(allProductLines.SingleOrDefault(c=>c.LineName==ProductStr)))">
+                
+                @if (selectedProductLine == null)
+                    {
+                        <option value"">Выберите Линию...</option>
+                    }
 
-        <div id="line_grid">
+                @foreach (var ProductStr in allProductLines)
+                    {
+                        <option value="@ProductStr.LineName">@ProductStr.LineName</option>
+                    }
+            </InputSelect>@*Качественный InputSelect*@
+        </EditForm>
+        <p></p>
+        <div>
             @if (PermissionLevelPerem)
             {
-                <div>
-                    <div id="sub_line_grid">
-                        <div>
-                            <button @onclick="Create">Создать программу</button>
-                        </div>
-                        <div>
+                <div class="divInline">
+                    <div> <button @onclick="Create">Создать программу</button> </div>
+                           
                             @if (selectedProductLine != null)
+                                {
+                                     <div> <button class="red_color_btn" @onclick="@(e => Delete(selectedProductLine.LineId.ToString(), selectedProductLine.LineName))">Удалить программу</button> </div>
+                                }
+                            @if (NewProductLine != null)
                             {
-                                <button @onclick="@(e=>SaveResult(selectedProductLine))">Сохранить изменения</button>
+                                  <div><button @onclick="@(e=>SaveResult(NewProductLine))">Сохранить изменения</button> </div>
                             }
+                </div>
+                <div/>//пустое пространство
+            }
+            @if (NewProductLine != null)
+            {
+                <div class="divElementStyle">
+                    <div>
+                        <div class="menu_headers">Имя производственного процесса: </div>
+                        <input size="100%" @bind="NewProductLine.LineName" />
+                        <p></p>
+                        <div class="menu_headers">Наличие КТ-0: </div>
+                        <div class="box">
+                            <input id="one" type="checkbox" @bind="NewProductLine.LineZeroCheckPoint">
+                            <span class="check"></span>
+                            <label for="one">Статус</label>
                         </div>
+                        <div class="menu_headers">Список КТ в формате JSON: </div>
+                        <textarea style="width:100%" @bind="NewProductLine.LineCheckPointsJson" />
+                        <p></p>
+
+                        <EditForm Model="allProducts">
+                            <InputSelect class="SelectElementStyle" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(NewProductLine , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
+                                @foreach (var data in allProducts)
+                                    {
+                                        <option value="@data.ProductName">@data.ProductName</option>
+                                    }
+                            </InputSelect>@*Качественный InputSelect*@
+                        </EditForm>
+
+                        <p></p>
+                    </div>
+                    <div>
+                        @if (selectedProductLine != null)
+                        {
+                            <div class="menu_headers">Список контрольных точек производственного процесса: </div>
+                            <p></p>
+                            <div id="sub_line_grid">
+                                <div>
+                                    <EditForm Model="allCheckPoints">
+                                        <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string CheckpointName) => SelectCheckPoint(allCheckPoints.SingleOrDefault(c => c.CheckPointName==CheckpointName)))">
+                                            @foreach (var checkpoint in allCheckPoints)
+                                            {
+                                <option value="@checkpoint.CheckPointName">@checkpoint.CheckPointName</option>
+                                            }
+                                        </InputSelect>@*Качественный InputSelect*@
+                                    </EditForm>
+                                </div>
+                                <div>
+                                    <button @onclick="CreateNewLineCheckPoint">Добавить проверку КТ</button>
+                                </div>
+                            </div>
+                            @if (LineCheckPoints != null)
+                            {
+                                <p></p>
+                                <table class="tableClass" style="max-height:250px">
+                                    <thead>
+                                        <tr>
+                                            <th>Название контрольной точки</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+
+                                        @foreach (var checkpoint in LineCheckPoints)
+                                        {
+                                            <tr>
+                                                <td>@checkpoint.Value</td>
+                                                <button class="red_color_btn" @onclick="@(e => DeleteCheckPoint(checkpoint.Key))">Удалить</button>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        }
                     </div>
                 </div>
-                <div></div>
-                <div>
-                    @if (selectedProductLine != null)
-                    {
-                        <button class="red_color_btn" @onclick="@(e => Delete(selectedProductLine.LineId.ToString(), selectedProductLine.LineName))">Удалить программу</button>
-                    }
 
-                </div>
             }
         </div>
-        @if (selectedProductLine != null)
-        {
-            <div id="grid" style="border: 1px solid;">
-                <div>
-                    <div class="menu_headers">Имя производственного процесса: </div>
-                    <input size="100%" @bind="selectedProductLine.LineName" />
-                    <p></p>
-                    <div class="menu_headers">Наличие КТ-0: </div>
-                    <div class="box">
-                        <input id="one" type="checkbox" @bind="selectedProductLine.LineZeroCheckPoint">
-                        <span class="check"></span>
-                        <label for="one">Статус</label>
-                    </div>
-                    <div class="menu_headers">Список КТ в формате JSON: </div>
-                    <textarea style="width:100%" @bind="selectedProductLine.LineCheckPointsJson" />
-                    <p></p>
-
-                    <EditForm Model="allProducts">
-                        <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(selectedProductLine , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
-                            @foreach (var data in allProducts)
-                            {
-                                <option value="@data.ProductName">@data.ProductName</option>
-                            }
-                        </InputSelect>@*Качественный InputSelect*@
-                    </EditForm>
-
-        <p></p>
-    </div>
-    <div>
-        @if (selectedProductLine != null & selectedProductLine.LineProductId != null)
-                    {
-                        <div class="menu_headers">Список контрольных точек производственного процесса: </div>
-                        <p></p>
-                        <div id="sub_line_grid">
-                            <div>
-                                <EditForm Model="allCheckPoints">
-                                    <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string CheckpointName) => SelectCheckPoint(allCheckPoints.SingleOrDefault(c => c.CheckPointName==CheckpointName)))">
-                                        @foreach (var checkpoint in allCheckPoints)
-                                        {
-                                                <option value="@checkpoint.CheckPointName">@checkpoint.CheckPointName</option>
-                                        }
-                                    </InputSelect>@*Качественный InputSelect*@
-                                </EditForm>
-
-                @*<details name="product" class="custom-select">
-                    <summary class="radios main_header">
-                        <input type="radio" name="itemproductcp" id="@GetId(true,false)" title="Выберите следующую контрольную точку..." checked>
-                        @foreach (var checkpoint in allCheckPoints)
-                                        {
-                                            <input type="radio" name="itemproductcp" id="@GetId(false,false)" title="@checkpoint.CheckPointName">
-                                        }
-                                    </summary>
-                                    <ul class="list">
-                                        @foreach (var checkpoint in allCheckPoints)
-                                        {
-                                            <li>
-                                                <label @onclick="@(e => SelectCheckPoint(checkpoint))" for="@GetId(false,true)">
-                                                    @checkpoint.CheckPointName
-                                                </label>
-                                            </li>
-                                        }
-                                    </ul>
-                                </details>*@
-                            </div>
-                            <div>
-                                <button @onclick="CreateNewLineCheckPoint">Добавить проверку КТ</button>
-                            </div>
-                        </div>
-                        <p></p>
-                        <table class="tableClass" style="max-height:250px">
-                            <thead>
-                                <tr>
-                                    <th>Название контрольной точки</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var checkpoint in LineCheckPoints)
-                                {
-                                    <tr>
-                                        <td>@checkpoint.Value</td>
-                                        <button class="red_color_btn" @onclick="@(e => DeleteCheckPoint(checkpoint.Key))">Удалить</button>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-            </div>
-        }
-
     }
 }
-
+              
 
 @code {
-    private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
-
     static bool PermissionLevelPerem = false;
 
     string UserName = "";
 
     protected override async Task OnInitializedAsync() => await Task.Run(Load);
 
-    string selectedItem = "";
+    string selectedItem = "Выберите Линию...";
+
+    static string productionProcessName = "";
 
     private async void Load()
     {
@@ -189,15 +171,12 @@ else
             PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Настройки линии");
             UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
             GettingLineSettingsDataFromApi();
+          
         }
         catch (Exception ex)
         {
             string exe = ex.Message.ToString();
         }
-
-
-
-
         //SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
     }
 
@@ -229,18 +208,14 @@ else
             });
     }
 
-    //private DataBase.SettingSenderMan.SettingsendermanContext db = new DataBase.SettingSenderMan.SettingsendermanContext();
-    //private ICollection<DataBase.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
 
-    //private DataContext.Products.ProductsContext dbProducts = new();
     private ICollection<DataContext.Products.ProductSettings> allProducts{ get; set; }
     private DataContext.Products.ProductSettings selectedProduct { get; set; }
 
-    // private DataContext.Productionlines.ProductionLinesContext db = new();
     private ICollection<DataContext.Productionlines.LineSettings> allProductLines{ get; set; }
     private DataContext.Productionlines.LineSettings selectedProductLine { get; set; }
+    private DataContext.Productionlines.LineSettings NewProductLine { get; set; }
 
-    //private DataContext.Checkpoints.CheckPointsContext dbCheckPoints = new();
     private ICollection<DataContext.Checkpoints.CheckPointsList> allCheckPoints{ get; set; }
     private DataContext.Checkpoints.CheckPointsList selectedCheckPoint{ get; set; }
 
@@ -314,8 +289,7 @@ else
     private void Create()
     {
         DisposeForm();
-        DataContext.Productionlines.LineSettings line = new();
-        selectedProductLine = line;
+        NewProductLine = new();
         Adding = true;
     }
 
@@ -355,15 +329,29 @@ else
     private async void SaveResult(DataContext.Productionlines.LineSettings ProductLine)
     {
         //TODO: Проверить
-        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для производственного процесса: \"" + selectedProductLine.LineName + "\" ?"))
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите сохранить изменения для производственного процесса: \"" + NewProductLine.LineName + "\" ?"))
         {
-
-            using (HttpClient client = new HttpClient())
+            //Проверка, если выбранная линия соответствует той что мы меняем то Put else  добавляем новую линию
+            if (ProductLine.LineName == selectedProductLine.LineName)
             {
-                string Json = JsonConvert.SerializeObject(ProductLine);
-                HttpContent cont = new StringContent("");
-                client.PutAsJsonAsync($"http://localhost:5139/api/ProductionLines/Put_LineSettings/{Json}", cont);
+                using (HttpClient client = new HttpClient())
+                {
+                    string Json = JsonConvert.SerializeObject(ProductLine);
+                    HttpContent cont = new StringContent("");
+                    await client.PutAsJsonAsync($"http://localhost:5139/api/ProductionLines/Put_LineSettings/{Json}", cont);
+                }
             }
+            else
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    string Json = JsonConvert.SerializeObject(ProductLine);
+                    HttpContent cont = new StringContent("");
+                    await client.PostAsJsonAsync($"http://localhost:5139/api/ProductionLines/Post_LineSettings/{Json}", cont);
+                }
+            }
+
+
 
             //if (Adding)
             //{
@@ -422,10 +410,19 @@ else
     private async void Update(DataContext.Productionlines.LineSettings line)
     {
         selectedProductLine = line;
+        selectedItem=selectedProductLine.LineName;
+        NewProductLine = selectedProductLine;//Это для того чтобы заполнить поля данными из выбранной линии.
 
         if(selectedProductLine.LineCheckPointsJson != null)
         {
-            LineCheckPoints = JsonConvert.DeserializeObject<Dictionary<int, string>>(selectedProductLine.LineCheckPointsJson);
+            try
+            {
+                LineCheckPoints = JsonConvert.DeserializeObject<Dictionary<int, string>>(selectedProductLine.LineCheckPointsJson);
+            }
+            catch(Exception e)
+            {
+                Log.Logger.Error("Ошибка Десериализации selectedProductLine.LineCheckPointsJson " + e.Message.ToString());
+            }
         }
         else
         {
@@ -436,7 +433,9 @@ else
     }
     private void DisposeForm()
     {
+        selectedItem = "Выберите Линию...";
         LineCheckPoints = new();
+        NewProductLine = null;
         selectedProductLine = null;
         selectedProduct = null;
         selectedCheckPoint = null;

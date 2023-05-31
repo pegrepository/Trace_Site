@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointAutosend;
+namespace BlazorApp1.DataContext.CheckPointAutosend;
 
 public partial class CheckPointAutoSendContext : DbContext
 {

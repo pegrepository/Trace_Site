@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointMetra;
+namespace BlazorApp1.DataContext.CheckPointMetra;
 
-public partial class CheckPointDataUfk3
+public partial class CheckPointDataUfk1
 {
     public int Id { get; set; }
 
@@ -15,9 +15,9 @@ public partial class CheckPointDataUfk3
 
     public string? TechRom { get; set; }
 
-    public string? Iccid { get; set; }
-
     public byte ProgrammKod { get; set; }
+
+    public bool Vch { get; set; }
 
     public DateTime TimeStart { get; set; }
 
@@ -29,7 +29,7 @@ public partial class CheckPointDataUfk3
 
     public string? Error { get; set; }
 
-    public bool? Result { get; set; }
+    public bool Result { get; set; }
 
     public string? LocalBarCode { get; set; }
 

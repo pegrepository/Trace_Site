@@ -278,9 +278,9 @@
     private bool Adding { get; set; } = false;
 
     private DataContext.Checkpoints.CheckPointsContext db = new DataContext.Checkpoints.CheckPointsContext();
-    private DataContext.Checkpoints.CheckPointAutosend.CheckPointAutoSendContext dbAutoSend = new DataContext.Checkpoints.CheckPointAutosend.CheckPointAutoSendContext();
-    private DataContext.Checkpoints.CheckPointMetra.CheckPointMetraContext dbMetra = new DataContext.Checkpoints.CheckPointMetra.CheckPointMetraContext();
-    private DataContext.Checkpoints.CheckPointPackaging.CheckPointPackagingContext dbPackaging = new DataContext.Checkpoints.CheckPointPackaging.CheckPointPackagingContext();
+    private DataContext.CheckPointAutosend.CheckPointAutoSendContext dbAutoSend = new DataContext.CheckPointAutosend.CheckPointAutoSendContext();
+    private DataContext.CheckPointMetra.CheckPointMetraContext dbMetra = new DataContext.CheckPointMetra.CheckPointMetraContext();
+    private DataContext.CheckPointPackaging.CheckPointPackagingContext dbPackaging = new DataContext.CheckPointPackaging.CheckPointPackagingContext();
     private DataContext.Products.ProductsContext dbProducts = new DataContext.Products.ProductsContext();
 
     private ICollection<DataContext.Checkpoints.CheckPointsList>? CheckPoints { get; set; }
@@ -289,12 +289,12 @@
     private DataContext.Products.ProductSettings selectedProduct { get; set; }
 
 
-    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSetting> metraSettings{ get; set; }
-    private DataContext.Checkpoints.CheckPointMetra.CheckPointSetting selectedmetraSettings { get; set; }
-    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1> metraUfk1Settings{ get; set; }
-    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1> selectedmetraUfk1Settings { get; set; }
-    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3> metraUfk3Settings{ get; set; }
-    private ICollection<DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3> selectedmetraUfk3Settings { get; set; }
+    private ICollection<DataContext.CheckPointMetra.CheckPointSetting> metraSettings{ get; set; }
+    private DataContext.CheckPointMetra.CheckPointSetting selectedmetraSettings { get; set; }
+    private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk1> metraUfk1Settings{ get; set; }
+    private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk1> selectedmetraUfk1Settings { get; set; }
+    private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk3> metraUfk3Settings{ get; set; }
+    private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk3> selectedmetraUfk3Settings { get; set; }
 
 
 
@@ -394,7 +394,7 @@
         }
     }
 
-    public async void DeleteStepUfk1(DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk1 stepR)
+    public async void DeleteStepUfk1(DataContext.CheckPointMetra.CheckPointSettingsUfk1 stepR)
     {
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить шаг ?"))
         {
@@ -404,7 +404,7 @@
         this.StateHasChanged();
     }
 
-    public async void DeleteStepUfk3(DataContext.Checkpoints.CheckPointMetra.CheckPointSettingsUfk3 stepR)
+    public async void DeleteStepUfk3(DataContext.CheckPointMetra.CheckPointSettingsUfk3 stepR)
     {
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить шаг ?"))
         {     

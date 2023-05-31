@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointMetra;
+namespace BlazorApp1.DataContext.CheckPointMetra;
 
-public partial class CheckPointSettingsUfk3
+public partial class CheckPointSettingsUfk1
 {
     public int Id { get; set; }
 

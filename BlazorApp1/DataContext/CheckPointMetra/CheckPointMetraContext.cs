@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
-namespace BlazorApp1.DataContext.Checkpoints.CheckPointMetra;
+namespace BlazorApp1.DataContext.CheckPointMetra;
 
 public partial class CheckPointMetraContext : DbContext
 {
