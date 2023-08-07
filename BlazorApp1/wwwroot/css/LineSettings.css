@@ -12,4 +12,19 @@
     border-radius: 20px;
     box-shadow: 0px 5px 10px 0px rgba(0, 0, 0, 0.5);
     padding: 1em;
+    width: 500px;
+    margin: 15px 10px 0px 0px;
+    background-color:white;
+}
+
+.InputBigElementStyle{
+    width:430px;
+}
+
+.InputMiddleElementStyle {
+    width: 310px;
+}
+
+.InputSmallElementStyle {
+    width: 200px;
 }

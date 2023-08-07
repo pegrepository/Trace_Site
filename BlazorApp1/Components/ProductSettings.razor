@@ -18,9 +18,10 @@
 
 <PageTitle>Настройки изделия</PageTitle>
 
-@if ((allProducts == null))
+@if (allProducts == null)
 {
-@*<div class='spinner'>
+    //спинер загрузки
+<div class='spinner'>
     <div class='dot'></div>
     <div class='dot'></div>
     <div class='dot'></div>
@@ -37,7 +38,7 @@
             <feBlend in='SourceGraphic' in2='goo' />
         </filter>
     </defs>
-</svg>*@
+</svg>
 }
 else
 {
@@ -57,7 +58,7 @@ else
                     @foreach (var data in allProducts)
                     {
                          <option value="@data.ProductName">@data.ProductName </option>
-                     }
+                    }
              </InputSelect>@*Качественный InputSelect*@
         </EditForm>
 
@@ -68,26 +69,26 @@ else
     <div>
         
         <div id="sub_line_grid">
-            <div>
-                <button @onclick="Create">Создать изделие</button>  
+                    <div>
+                        <button @onclick="Create">Создать изделие</button>  
+                    </div>
+                    <div> 
+                        @if (selectedProduct != null)
+                        { 
+                            <button class="green_color_btn" @onclick="SaveResult">Сохранить изменения</button>   
+                        }
+                    </div>
+                    <div>
+                        @if (selectedProduct != null)
+                        {       
+                    <button class="red_color_btn" @onclick="@(e => Delete())">Удалить изделие</button>        
+                        }
             </div>
-            <div> 
-               @if(selectedProduct != null)
-               { 
-                <button class="green_color_btn" @onclick="SaveResult">Сохранить изменения</button>   
-               }
-            </div>
+                </div>
 
-        </div>
-       
-    </div>
-    <div></div>
-    <div>
-        @if(selectedProduct != null)
-        {       
-        <button class="red_color_btn" @onclick="@(e => Delete())">Удалить изделие</button>        
-        }
-    </div>
+            </div>
+            <div></div>
+    
     
 </div>
 
@@ -97,19 +98,20 @@ else
             <div id="grid" class="divElementStyle">
 
                 <div>                    
-                    <div class="menu_headers">Имя изделия: </div>
-                    <input  size="100%" @bind="selectedProduct.ProductName" />
+                    <div >Имя изделия: </div>
+                    <input class="InputBigElementStyle" @bind="selectedProduct.ProductName" />
                     <p></p>
-                    <div class="menu_headers">ID Изделия: </div>
-                    <input @bind="selectedProduct.ProductId" />
+                    <div >ID Изделия: </div>
+                    <input class="InputSmallElementStyle" @bind="selectedProduct.ProductId" />
                     <p></p>
-                    <div class="menu_headers">Номер 1С: </div>
-                    <input @bind="selectedProduct.Product1C" />
+                    <div >Номер 1С: </div>
+                    <input class="InputSmallElementStyle" @bind="selectedProduct.Product1C" />
                     <p></p>
-                    <div class="menu_headers">Потребитель: </div>
-                    <input @bind="selectedProduct.ProductConsumer" />
+                    <div >Потребитель: </div>
+                    <input class="InputSmallElementStyle" @bind="selectedProduct.ProductConsumer" />
                     <p></p>  
-                    <div class="menu_headers">Набор ярлыков изделия: </div>
+                </div> 
+                    @*<div >Набор ярлыков изделия: </div>
 
                     <details name="producttaglist" class="custom-select">
                         <summary class="radios main_header">
@@ -139,7 +141,7 @@ else
                         </ul>
                     </details>
                     <p></p>
-                    <div class="menu_headers">Изображение изделия: </div>    
+                    <div >Изображение изделия: </div>    
                     <button @onclick="LoadFilesProductImage" />
                     <label>@TestLabel</label>
                     <p></p>
@@ -446,7 +448,7 @@ else
                     }
                     </details>                   
                 </div>
-
+                *@
             </div>
             
         }
@@ -470,8 +472,8 @@ else
         {
             try
             {
-                var response =  client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings");//Посылаем запрос на получение строки
-                allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings"));
+                var response =  client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductSettings");//Посылаем запрос на получение строки
+                allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductSettings"));
             }
             catch (Exception ex)
             {
@@ -846,7 +848,7 @@ else
 
                 HttpContent cont = new StringContent(System.Text.Json.JsonSerializer.Serialize(tags), System.Text.Encoding.UTF8, "application/json");// я так и не понял зачем это нужно
                 string RealContent = System.Text.Json.JsonSerializer.Serialize(tags);//Это то что отправляем
-                var response = await httpclient.PostAsync(($"http://localhost:5139/api/{controller}/{method}/{RealContent}"), cont);
+                var response = await httpclient.PostAsync(($"http://192.168.96.139:5139/api/{controller}/{method}/{RealContent}"), cont);
                 var content = await response.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
@@ -1055,7 +1057,7 @@ else
     {
         using (var client = new WebClient())
         {
-            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductTags");//Посылаем запрос на получение строки                                                                                               //var content = response.Content.ReadAsStringAsync();//Получаем ответ
+            string response = client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductTags");//Посылаем запрос на получение строки                                                                                               //var content = response.Content.ReadAsStringAsync();//Получаем ответ
             allTags = JsonConvert.DeserializeObject<List<DataContext.Products.ProductTags>>(response);
         }
 
@@ -1064,7 +1066,7 @@ else
     {
         using (var client = new WebClient())
         {
-            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductPassports");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            string response = client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductPassports");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
             allPassports = JsonConvert.DeserializeObject<List<DataContext.Products.ProductPassports>>(response);
         }
     },
@@ -1072,7 +1074,7 @@ else
     {
         using (var client = new WebClient())
         {
-            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductTagParameters");//Посылаем запрос на получение строки                                                                                                            //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            string response = client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductTagParameters");//Посылаем запрос на получение строки                                                                                                            //content = await response.Content.ReadAsStringAsync();//Получаем ответ
             allTagParameters = JsonConvert.DeserializeObject<List<DataContext.Products.ProductTagParameters>>(response);
 
         }
@@ -1081,7 +1083,7 @@ else
     {
         using (var client = new WebClient())
         {
-            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductLabels");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            string response = client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductLabels");//Посылаем запрос на получение строки                                                                                                     //content = await response.Content.ReadAsStringAsync();//Получаем ответ
             allLabels = JsonConvert.DeserializeObject<List<DataContext.Products.ProductLabels>>(response);
 
         }
@@ -1090,7 +1092,7 @@ else
     {
         using (var client = new WebClient())
         {
-            string response = client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductPackingLists");//Посылаем запрос на получение строки                                                                                                             //content = await response.Content.ReadAsStringAsync();//Получаем ответ
+            string response = client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductPackingLists");//Посылаем запрос на получение строки                                                                                                             //content = await response.Content.ReadAsStringAsync();//Получаем ответ
             allPackingLists = JsonConvert.DeserializeObject<List<DataContext.Products.ProductPackingLists>>(response);
         }
     }

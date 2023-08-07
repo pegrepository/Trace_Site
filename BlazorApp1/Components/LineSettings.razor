@@ -47,7 +47,6 @@ else
                     {
                         <option value"">Выберите Линию...</option>
                     }
-
                 @foreach (var ProductStr in allProductLines)
                     {
                         <option value="@ProductStr.LineName">@ProductStr.LineName</option>
@@ -76,21 +75,21 @@ else
             {
                 <div class="divElementStyle">
                     <div>
-                        <div class="menu_headers">Имя производственного процесса: </div>
-                        <input size="100%" @bind="NewProductLine.LineName" />
+                        <div>Имя производственного процесса: </div>
+                        <input class="InputMiddleElementStyle" @bind="NewProductLine.LineName" />
                         <p></p>
-                        <div class="menu_headers">Наличие КТ-0: </div>
+                        <div >Наличие КТ-0: </div>
                         <div class="box">
                             <input id="one" type="checkbox" @bind="NewProductLine.LineZeroCheckPoint">
                             <span class="check"></span>
                             <label for="one">Статус</label>
                         </div>
-                        <div class="menu_headers">Список КТ в формате JSON: </div>
+                        <div >Список КТ в формате JSON: </div>
                         <textarea style="width:100%" @bind="NewProductLine.LineCheckPointsJson" />
                         <p></p>
 
                         <EditForm Model="allProducts">
-                            <InputSelect class="SelectElementStyle" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(NewProductLine , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
+                            <InputSelect class="SelectElementStyle" Value="selectedProductName" ValueExpression="@(()=>selectedProductName)" ValueChanged="@((string ProductStr) => SelectProduct(NewProductLine , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
                                 @foreach (var data in allProducts)
                                     {
                                         <option value="@data.ProductName">@data.ProductName</option>
@@ -103,12 +102,12 @@ else
                     <div>
                         @if (selectedProductLine != null)
                         {
-                            <div class="menu_headers">Список контрольных точек производственного процесса: </div>
+                            <div >Список контрольных точек производственного процесса: </div>
                             <p></p>
                             <div id="sub_line_grid">
                                 <div>
                                     <EditForm Model="allCheckPoints">
-                                        <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string CheckpointName) => SelectCheckPoint(allCheckPoints.SingleOrDefault(c => c.CheckPointName==CheckpointName)))">
+                                        <InputSelect class="SelectElementStyle" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string CheckpointName) => SelectCheckPoint(allCheckPoints.SingleOrDefault(c => c.CheckPointName==CheckpointName)))">
                                             @foreach (var checkpoint in allCheckPoints)
                                             {
                                 <option value="@checkpoint.CheckPointName">@checkpoint.CheckPointName</option>
@@ -160,6 +159,8 @@ else
 
     string selectedItem = "Выберите Линию...";
 
+    string selectedProductName = "";
+
     static string productionProcessName = "";
 
     private async void Load()
@@ -171,12 +172,13 @@ else
             PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Настройки линии");
             UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
             GettingLineSettingsDataFromApi();
-          
+
         }
         catch (Exception ex)
         {
             string exe = ex.Message.ToString();
         }
+
         //SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
     }
 
@@ -187,7 +189,7 @@ else
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    allProductLines = JsonConvert.DeserializeObject<List<DataContext.Productionlines.LineSettings>>(client.DownloadString($"http://localhost:5139/api/ProductionLines/GetAllFrom_LineSettings"));//Посылаем запрос на получение строки
+                    allProductLines = JsonConvert.DeserializeObject<List<DataContext.Productionlines.LineSettings>>(client.DownloadString($"http://192.168.96.139:5139/api/ProductionLines/GetAllFrom_LineSettings"));//Посылаем запрос на получение строки
                 }
             },
 
@@ -195,15 +197,15 @@ else
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://localhost:5139/api/Products/GetAllFrom_ProductSettings"));//Посылаем запрос на получение строки
+                    allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductSettings"));//Посылаем запрос на получение строки
                 }
             },
 
             () =>
             {
-                using (var client2 = new System.Net.WebClient())
+                using (var client = new System.Net.WebClient())
                 {
-                    allCheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client2.DownloadString($"http://localhost:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));//Посылаем запрос на получение строки
+                    allCheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));//Посылаем запрос на получение строки
                 }
             });
     }
@@ -275,6 +277,7 @@ else
     private void SelectProduct(DataContext.Productionlines.LineSettings line, DataContext.Products.ProductSettings izdel)
     {
         selectedProduct = izdel;
+        selectedProductName = selectedProduct.ProductName;
         line.LineProductId = selectedProduct.ProductId;
     }
 
@@ -305,7 +308,7 @@ else
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    await client.DeleteAsync($"http://localhost:5139/api/ProductionLines/DeleteString_LineSettings/{LineId}/{LineName}");
+                    await client.DeleteAsync($"http://192.168.96.139:5139/api/ProductionLines/DeleteString_LineSettings/{LineId}/{LineName}");
                 }
             }
             DisposeForm();
@@ -338,7 +341,7 @@ else
                 {
                     string Json = JsonConvert.SerializeObject(ProductLine);
                     HttpContent cont = new StringContent("");
-                    await client.PutAsJsonAsync($"http://localhost:5139/api/ProductionLines/Put_LineSettings/{Json}", cont);
+                    await client.PutAsJsonAsync($"http://192.168.96.139:5139/api/ProductionLines/Put_LineSettings/{Json}", cont);
                 }
             }
             else
@@ -347,7 +350,7 @@ else
                 {
                     string Json = JsonConvert.SerializeObject(ProductLine);
                     HttpContent cont = new StringContent("");
-                    await client.PostAsJsonAsync($"http://localhost:5139/api/ProductionLines/Post_LineSettings/{Json}", cont);
+                    await client.PostAsJsonAsync($"http://192.168.96.139:5139/api/ProductionLines/Post_LineSettings/{Json}", cont);
                 }
             }
 
@@ -406,12 +409,15 @@ else
         this.StateHasChanged();
     }
 
-    //Обновелние формы при выборе другого изделия
+    //Обновление формы при выборе другого изделия
     private async void Update(DataContext.Productionlines.LineSettings line)
     {
+
         selectedProductLine = line;
         selectedItem=selectedProductLine.LineName;
-        NewProductLine = selectedProductLine;//Это для того чтобы заполнить поля данными из выбранной линии.
+        NewProductLine = selectedProductLine;       //Это для того чтобы заполнить поля данными из выбранной линии.
+
+        selectedProductName = allProducts.FirstOrDefault(e=>e.ProductId== selectedProductLine.LineProductId).ProductName;
 
         if(selectedProductLine.LineCheckPointsJson != null)
         {
@@ -430,7 +436,9 @@ else
         }
         selectedProduct = null;
         selectedCheckPoint = null;
+
     }
+
     private void DisposeForm()
     {
         selectedItem = "Выберите Линию...";

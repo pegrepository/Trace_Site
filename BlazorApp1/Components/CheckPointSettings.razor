@@ -3,6 +3,7 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @using System.Linq
 @using Microsoft.EntityFrameworkCore;
+@using Newtonsoft.Json
 @inject IJSRuntime JsRuntime
 @inject NavigationManager _navigationManager
 
@@ -10,7 +11,7 @@
 
 <PageTitle>Настройки КТ</PageTitle>
 
-@if ((CheckPoints == null) || (user == null))
+@if ((CheckPoints == null))
 {
 <div class='spinner'>
     <div class='dot'></div>
@@ -34,7 +35,11 @@
  else
     {            
          <EditForm Model="CheckPoints">
-            <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string dataStr) => Update(CheckPoints.SingleOrDefault(c=>c.CheckPointName==dataStr)))">
+            <InputSelect class="SelectElementStyle" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string dataStr) => Update(CheckPoints.SingleOrDefault(c=>c.CheckPointName==dataStr)))">
+                @if (selectedCheckPoint == null)
+                    {
+                        <option value"">Выберите КТ...</option>
+                    }
                 @foreach (var data in CheckPoints)
                 {
                     <option value="@data.CheckPointName">@data.CheckPointName</option>
@@ -44,7 +49,7 @@
         <p></p>
         
         <div id="line_grid">
-            @if(PermissionLevel("Admin"))
+            @if(PermissionLevelPerem)
             {
                 <div>
                     <div id="sub_line_grid">                        
@@ -71,24 +76,36 @@
     <p></p>
     @if(selectedCheckPoint != null)
     {
-          <div id="grid" style="border: 1px solid;">
+          <div id="grid" class="divElementStyle">
                 <div>   
-                     <div class="menu_headers">Имя контрольной точки: </div>
-                     <input size="100%" @bind="selectedCheckPoint.CheckPointName" />
+
+                     <div >Имя контрольной точки: </div>
+                     <input class="InputSmallElementStyle" @bind="selectedCheckPoint.CheckPointName" />
+
                      <p></p>   
-                     <div class="menu_headers">IP контрольной точки: </div>
-                     <input size="100%" @bind="selectedCheckPoint.CheckPointIp" />
+
+                     <div >IP контрольной точки: </div>
+                     <input class="InputSmallElementStyle" @bind="selectedCheckPoint.CheckPointIp" />
+
                      <p></p> 
-                     <div class="menu_headers">Глобальные настройки контрольной точки: </div>
-                     <textarea style="width:100%" @bind="selectedCheckPoint.CheckPointSettingsJson" />
+
+                     <div >Глобальные настройки контрольной точки: </div>
+                     <textarea style="width:50%" @bind="selectedCheckPoint.CheckPointSettingsJson" />
+
                      <p></p> 
-                     <div class="menu_headers" >Глобальные данные контрольной точки: </div>
-                     <textarea style="width:100%" @bind="selectedCheckPoint.CheckPointDataJson" />
+
+                     <div>Глобальные данные контрольной точки: </div>
+                     <textarea style="width:50%" @bind="selectedCheckPoint.CheckPointDataJson" />
+
                 <p></p>
 
                 <EditForm Model="allProducts">
-                    <InputSelect class="SelectKindOfBeg" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(selectedCheckPoint , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
-                        @foreach (var data in allProducts)
+                    <InputSelect class="SelectElementStyle" Value="@selectedItem" ValueExpression="@(()=>selectedItem)" ValueChanged="@((string ProductStr) => SelectProduct(selectedCheckPoint , allProducts.SingleOrDefault(c=>c.ProductName == ProductStr)))">
+                        @if (selectedProduct == null)
+                        {
+                         <option value"">Выберите Изделие...</option>
+                        }
+                @foreach (var data in allProducts)
                         {
                             <option value="@data.ProductName">@data.ProductName</option>
                         }
@@ -98,20 +115,20 @@
 
                     @if(selectedProduct != null)
                     {
-                        <div class="menu_headers">Имя изделия: </div>
+                        <div >Имя изделия: </div>
                         <input readonly size="100%" @bind="selectedProduct.ProductName" />
                         <p></p>
-                        <div class="menu_headers">ID Изделия: </div>
+                        <div >ID Изделия: </div>
                         <input readonly @bind="selectedProduct.ProductId" />
                         <p></p>
-                        <div class="menu_headers">Номер 1С: </div>
+                        <div >Номер 1С: </div>
                         <input readonly @bind="selectedProduct.Product1C" />
                         <p></p>
-                        <div class="menu_headers">Потребитель: </div>
+                        <div >Потребитель: </div>
                         <input readonly @bind="selectedProduct.ProductConsumer" /> 
                         <p></p>
                         @* Возможно понадобится ввести фото КТ
-                        <div class="menu_headers">Изображение изделия: </div>    
+                        <div >Изображение изделия: </div>    
                         <InputFile OnChange="LoadFilesProductImage" />
                         <p></p>
                         @if(selectedProduct.ProductImage != null & !isLoading_Image)
@@ -125,20 +142,20 @@
             <div>
                 @if (selectedProduct != null & selectedCheckPoint.CheckPointId == 15)//TODO:15?
                 {
-                    <div class="menu_headers">ТехРом: </div>
+                    <div >ТехРом: </div>
                     <input size="100%" @bind="techromstruct" />
-                    <div class="menu_headers">ВЧ Пин: </div>
+                    <div >ВЧ Пин: </div>
                     <div class="box">
                         <input id="one" type="checkbox" @bind="vchpinstate">
                         <span class="check"></span>
                         <label for="one">Статус</label>
                     </div>
-                    <div class="menu_headers">Коды запуска УФК: </div>
+                    <div >Коды запуска УФК: </div>
                     <p>УФК1: 0x<input size="3" @bind="KodUfk1" /></p>
                     <p>УФК3 МТС: 0x<input size="3" @bind="KodUfk3mts" /></p>
                     <p>УФК3 НИТ: 0x<input size="3" @bind="KodUfk3nit" /></p>
                     <p></p>
-                    <div class="menu_headers">Пределы шагов: </div>
+                    <div >Пределы шагов: </div>
                     <p></p>
                     <div id="sub_line_grid">
                         <div>
@@ -208,21 +225,72 @@
 
 
 @code {
-    string selectedItem = "";
+    string selectedItem = "Выберите Изделие...";
+
+    static bool PermissionLevelPerem = false;
+
+    string UserName = "";
+
     private BlazorApp1.DataContext.Permissions.UserPermissions user{ get; set; }
+
     protected override async Task OnInitializedAsync() => await Task.Run(Load);
+
     private async void Load()
     {
         Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
-        user = new(authState.Result.User.Identity.Name, "Настройки КТ");
-        CheckPoints = db.CheckPointsLists.ToList();
-        allProducts = dbProducts.ProductSettings.ToList();
+        try
+        {
+            //Получаем данные с таблиц Списка работников, Cтраниц и правил
+            PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Настройки линии");
+            UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
+            GettingLineSettingsDataFromApi();
+        }
+        catch (Exception ex)
+        {
+            string exe = ex.Message.ToString();
+        }
+    }
 
-        metraSettings = dbMetra.CheckPointSettings.ToList();
-        metraUfk1Settings = dbMetra.CheckPointSettingsUfk1s.ToList();
-        metraUfk3Settings = dbMetra.CheckPointSettingsUfk3s.ToList();
+    private void GettingLineSettingsDataFromApi()
+    {
+        Parallel.Invoke(
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    metraUfk1Settings = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointSettingsUfk1>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointSettingsUfk1"));//Посылаем запрос на получение строки
+                }
+            },
 
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    metraSettings = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointSetting>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointSettings"));//Посылаем запрос на получение строки
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    allProducts = JsonConvert.DeserializeObject<List<DataContext.Products.ProductSettings>>(client.DownloadString($"http://192.168.96.139:5139/api/Products/GetAllFrom_ProductSettings"));//Посылаем запрос на получение строки
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    CheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));//Посылаем запрос на получение строки
+                }
+            },
 
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    metraUfk3Settings = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointSettingsUfk3>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointSettingsUfk3"));//Посылаем запрос на получение строки
+                }
+            });
     }
 
     private bool vchpinstate { get; set; } 
@@ -296,24 +364,6 @@
     private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk3> metraUfk3Settings{ get; set; }
     private ICollection<DataContext.CheckPointMetra.CheckPointSettingsUfk3> selectedmetraUfk3Settings { get; set; }
 
-
-
-    /// <summary>
-    /// Проверка уровня доступа
-    /// </summary>
-    /// <param name="level"></param>
-    /// <returns></returns>
-    private bool PermissionLevel(string level)
-    {
-        foreach(var rule in user.rulesList)
-        {
-            if(rule.PermissionLevel == level)
-            {
-                return true;
-            }            
-        }
-        return false;
-    }
 
     /// <summary>
     /// Индексация html элементов
@@ -418,6 +468,7 @@
     private void SelectProduct(DataContext.Checkpoints.CheckPointsList checkpoint, DataContext.Products.ProductSettings izdel)
     {
         selectedProduct = izdel;
+        selectedItem = selectedProduct.ProductName;//Для корректного отображения на интерфейсе
         switch (checkpoint.CheckPointId)
         {
             case 15:               
@@ -496,7 +547,7 @@
         }       
     }
 
-     /// <summary>
+    /// <summary>
     /// Добавление новой программы в БД
     /// </summary>
     private void AddDataBase()
@@ -514,7 +565,6 @@
 
         }        
     }
-
 
     private int convertHEXtoDEC(string input)
     {
@@ -541,9 +591,7 @@
         catch(Exception)
         {
             return 255;
-
         }
-   
     }
 
     //Обновелние формы при выборе другого изделия
@@ -551,6 +599,7 @@
     {
         selectedCheckPoint = checkpoint;
         selectedProduct = null;
+        selectedItem = "Выберите Изделие...";
     }
 
     private void DisposeForm()

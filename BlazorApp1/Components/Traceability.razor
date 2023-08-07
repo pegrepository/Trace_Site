@@ -532,8 +532,8 @@ else
     private string? ICCID { get; set; }//переменная отвечающая за ICCID
     private string? BoxId{ get; set; }//Костыль ввиде поиска по Idкоробки
 
-    private IQueryable<DataBase.NewMesContext.Mes>? SelectItem { get; set; }//Модель главной таблицы БД
-    private ICollection<MesSelected>? TableMes { get; set; }//Коллекция отображающая таблицу   
+    //private IQueryable<DataBase.NewMesContext.Mes>? SelectItem { get; set; }//Модель главной таблицы БД
+    //private ICollection<MesSelected>? TableMes { get; set; }//Коллекция отображающая таблицу   
     private DataBase.PackDataBase.Models.BoxSelected? SelectBoxes{ get; set; }
 
     private string[] HeadersNameGlobal = new string[] { "BarCode", "ProductId", "CheckTime", "LastCheckPointId","Result", "Error" };//Header для глобальной таблицы
@@ -570,11 +570,17 @@ else
 
     //CheckPointsContext DBChekPoint = new CheckPointsContext();
 
-    CheckPointMetraContext CPMetraContext = new CheckPointMetraContext();
+    //CheckPointMetraContext CPMetraContext = new CheckPointMetraContext();
     CheckPointDataProgrammer SelectedProgrammer{ get; set; }
     CheckPointDataUfk1 SelectedUFK1 { get; set; }
     CheckPointDataUfk3 SelectedUFK3 { get; set; }
     CheckPointDataPrinter SelectedPrinter { get; set; }
+
+    List<CheckPointDataProgrammer> AllDataProgrammer{ get; set; }
+    List<CheckPointDataUfk1> AllDataUFk1 { get; set; }
+    List<CheckPointDataUfk3> AllDataUFk3 { get; set; }
+    List<CheckPointDataPrinter> AllDataPrinter { get; set; }
+
 
     //CheckPointPackagingContext CPPackageContext = new CheckPointPackagingContext();
     BlazorApp1.DataContext.CheckPointPackaging.CheckPointData SelectedPackBarCode { get; set; }
@@ -627,27 +633,28 @@ else
 
         GettingLineSettingsDataFromApi();
         LoadTraceabilityTable();
-         long st = stopWatch.ElapsedMilliseconds;
-         stopWatch.Stop();
+        long st = stopWatch.ElapsedMilliseconds;
+        stopWatch.Stop();
         //CheckPoints = DBChekPoint.CheckPointsLists.ToList();
 
     }
 
     private void GettingLineSettingsDataFromApi()
     {
+        new Thread(GettingMetraDataFromAPI).Start();//Разделил просто по потокам получение информации
         Parallel.Invoke(
             () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    CheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://localhost:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));
+                    CheckPoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoints/GetAllFrom_CheckPointsList"));
                 }
             },
             () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    TraceabilityTable = JsonConvert.DeserializeObject<List<DataContext.Traceability.Global>>(client.DownloadString($"http://localhost:5139/api/Traceability/GetAllFrom_Global"));
+                    TraceabilityTable = JsonConvert.DeserializeObject<List<DataContext.Traceability.Global>>(client.DownloadString($"http://192.168.96.139:5139/api/Traceability/GetAllFrom_Global"));
                     TraceabilityTableFiltered = TraceabilityTable;
                 }
             },
@@ -655,45 +662,74 @@ else
             {
                 using (var client = new System.Net.WebClient())
                 {
-                //AllCheckpoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://localhost:5139/api/Traceability/GetAllFrom_Global"));
+                //AllCheckpoints = JsonConvert.DeserializeObject<List<DataContext.Checkpoints.CheckPointsList>>(client.DownloadString($"http://192.168.96.139:5139/api/Traceability/GetAllFrom_Global"));
                 }
             },
              () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    Allserials = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataSerials>>(client.DownloadString($"http://localhost:5139/api/Traceability/GetAllFrom_Global"));
+                    Allserials = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataSerials>>(client.DownloadString($"http://192.168.96.139:5139/api/Traceability/GetAllFrom_Global"));
                 }
             },
              () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    AllPackages = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataPackages>>(client.DownloadString($"http://localhost:5139/api/CheckPoint_Packaging/GetAllFrom_CheckPointDataPackages"));
+                    AllPackages = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataPackages>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Packaging/GetAllFrom_CheckPointDataPackages"));
                 }
             },
             () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    AllserialsIncludingPackagesTable = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataSerials>>(client.DownloadString($"http://localhost:5139/api/CheckPoint_Packaging/GetFrom_CheckPointDataSerials_IncludeCheckPointDataPackages"));
+                    AllserialsIncludingPackagesTable = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataSerials>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Packaging/GetFrom_CheckPointDataSerials_IncludeCheckPointDataPackages"));
                 }
             },
             () =>
             {
                 using (var client = new System.Net.WebClient())
                 {
-                    AllPackagesIncludingCheckPointData = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataPackages>>(client.DownloadString($"http://localhost:5139/api/CheckPoint_Packaging/GetFrom_CheckPointDataPackages_IncludeCheckPointData"));
+                    AllPackagesIncludingCheckPointData = JsonConvert.DeserializeObject<List<DataContext.CheckPointPackaging.CheckPointDataPackages>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Packaging/GetFrom_CheckPointDataPackages_IncludeCheckPointData"));
                 }
             }
-
-
-
-
-
-
             );
     }
+
+    private void GettingMetraDataFromAPI()
+    {
+        Parallel.Invoke(
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    AllDataProgrammer = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointDataProgrammer>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointDataProgrammer"));
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    AllDataUFk1 = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointDataUfk1>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointDataUfk1"));
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    AllDataUFk3 = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointDataUfk3>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointDataUfk3"));
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    AllDataPrinter = JsonConvert.DeserializeObject<List<DataContext.CheckPointMetra.CheckPointDataPrinter>>(client.DownloadString($"http://192.168.96.139:5139/api/CheckPoint_Metra/GetAllFrom_CheckPointDataPrinter"));
+                }
+            }
+        );
+    }
+
 
 
 
@@ -1199,24 +1235,24 @@ else
                 switch(sel.Name)
                 {
                     case "Программатор":
-                        SelectedProgrammer = CPMetraContext.CheckPointDataProgrammers.Find(sel.Id);
+                        SelectedProgrammer = AllDataProgrammer.Where(e=> e.Id ==sel.Id).FirstOrDefault();
                         break;
                     case "УФК1":
-                        SelectedUFK1 = CPMetraContext.CheckPointDataUfk1s.Find(sel.Id);
+                        SelectedUFK1 = AllDataUFk1.Where(e=> e.Id ==sel.Id).FirstOrDefault();
                         if(SelectedUFK1?.Jsontest != null)
                         {
                             SelectUfk1Test = JsonConvert.DeserializeObject<Dictionary<string, string>>(SelectedUFK1?.Jsontest);                   
                         }  
                         break;
                     case "УФК3":
-                        SelectedUFK3 = CPMetraContext.CheckPointDataUfk3s.Find(sel.Id);
+                        SelectedUFK3 =  AllDataUFk3.Where(e=> e.Id ==sel.Id).FirstOrDefault();
                         if(SelectedUFK3?.Jsontest != null)
                         {
                             SelectUfk3Test = JsonConvert.DeserializeObject<Dictionary<string, string>>(SelectedUFK3?.Jsontest);                   
                         }  
                         break;
                     case "Принтер":
-                        SelectedPrinter = CPMetraContext.CheckPointDataPrinters.Find(sel.Id);
+                        SelectedPrinter =  AllDataPrinter.Where(e=> e.Id ==sel.Id).FirstOrDefault();
                         break;
                 }
                 break;

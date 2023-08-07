@@ -1,0 +1,72 @@
+﻿/*Фон основного окна*/
+.Main_Body_layout {
+    background: url(Images/MainLayer5.png) no-repeat center center fixed; /*linear-gradient(360deg, white 50%, #be5f04 200%);*/
+    background-size: 1900px;
+    padding: 0px 0px 0px 0px;
+}
+
+/*фон сайд бара*/
+.sidebar {
+    background: /*url(Images/NavMenuMark2.jpg) no-repeat ;*/ linear-gradient(360deg, rgb(255, 162, 82) 0%, #FFAD00 150%);
+    background-size: cover;
+}
+
+/*Верхняя строка авторизации*/
+.blurLayer {
+    color: black;
+    text-align: end;
+    padding: 6px 70px 0px 0px;
+    font-size:30px;
+    height: 50px;
+    backdrop-filter: blur(10px);
+}
+
+/*Основное окно*/
+.mainArticle{
+
+    padding:70px 400px 0px 0px !important;
+
+}
+
+.FontColor {
+    margin: 0px 0px 0px 0px !important;
+    color: white !important;
+    padding: 0px 0px 0px 0px !important;
+    text-align: end;
+    text-decoration: none !important;
+    font-size:18px;
+}
+
+.TabBackgroundColor {
+    /*background-color: #FF7100;*/
+    text-align: center;
+    padding: 10px 0px 0px 0px;
+    text-decoration: none;
+    margin: 0px 20px 0px 10px;
+    display: flex;
+    backdrop-filter: blur(10px);
+    color: aliceblue;
+    height: 45px;
+}
+
+.NavMenuDiv {
+    align-content: inherit;
+    margin: 0px 5px 0px 10px;
+}
+
+
+.NavMenuDiv:hover {
+    margin: 0px 20px 0px 10px;
+    background-color: #ffffff29;
+}
+
+
+.PaddingCorrector {
+    padding: 5px 0px 0px 0px !important;
+}
+
+.Main_Nav_Menu {
+    padding: 15px 0px 0px 0px;
+    border-block-color:aliceblue;
+    border-block-width:medium;
+}

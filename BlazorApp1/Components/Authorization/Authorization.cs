@@ -37,12 +37,13 @@ namespace BlazorApp1.Components.Authorization
 
         private static void GettingPermissionDataFromApi(string userName, string pageName)
         {
+
             Parallel.Invoke(
                 () =>
                 {
                     using (var client = new System.Net.WebClient())
                     {
-                        responseEmployees = JsonConvert.DeserializeObject<List<DataContext.Permissions.EmployeesList>>(client.DownloadString($"http://localhost:5139/api/Permissions/GetFrom_EmployeesList_ByEmployeeLogin/{userName}")).FirstOrDefault();//Посылаем запрос на получение строки
+                        responseEmployees = JsonConvert.DeserializeObject<List<DataContext.Permissions.EmployeesList>>(client.DownloadString($"http://192.168.96.139:5139/api/Permissions/GetFrom_EmployeesList_ByEmployeeLogin/{userName}")).FirstOrDefault();//Посылаем запрос на получение строки
                     }
                 },
 
@@ -50,14 +51,15 @@ namespace BlazorApp1.Components.Authorization
                 {
                     using (var client2 = new System.Net.WebClient())
                     {
-                        responseWebSitePagesList = JsonConvert.DeserializeObject<List<DataContext.Permissions.WebSitePagesList>>(client2.DownloadString($"http://localhost:5139/api/Permissions/GetFrom_WebSitePagesList_ByWebSitePageName/{pageName}")).FirstOrDefault();//Посылаем запрос на получение строки
+                        responseWebSitePagesList = JsonConvert.DeserializeObject<List<DataContext.Permissions.WebSitePagesList>>(client2.DownloadString($"http://192.168.96.139:5139/api/Permissions/GetFrom_WebSitePagesList_ByWebSitePageName/{pageName}")).FirstOrDefault();//Посылаем запрос на получение строки
                     }
                 });
 
             using (var client3 = new System.Net.WebClient())
             {
-                responsePermissionRules = JsonConvert.DeserializeObject<List<DataContext.Permissions.PermissionRules>>(client3.DownloadString($"http://localhost:5139/api/Permissions/GetFrom_PermissionRule_ByEmployeeIdAndWebSitePageId/{responseEmployees.EmployeeId}/{responseWebSitePagesList.WebSitePageId}")).FirstOrDefault();
+                responsePermissionRules = JsonConvert.DeserializeObject<List<DataContext.Permissions.PermissionRules>>(client3.DownloadString($"http://192.168.96.139:5139/api/Permissions/GetFrom_PermissionRule_ByEmployeeIdAndWebSitePageId/{responseEmployees.EmployeeId}/{responseWebSitePagesList.WebSitePageId}")).FirstOrDefault();
             };
         }
+
     }
 }

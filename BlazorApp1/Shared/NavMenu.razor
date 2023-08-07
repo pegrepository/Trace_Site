@@ -1,55 +1,106 @@
-﻿<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-         <div class="nav-item px-3">
-            <NavLink class="nav-link oi oi-wrench" href="productsettings">
-                <span class="oi oi-tag" aria-hidden="true"></span> Настройки изделия
+﻿
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="Main_Nav_Menu" @onclick="ToggleNavMenu">
+    <nav class="Main_Nav_Menu ">
+         <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="productsettings">
+               <span class="oi oi-tag PaddingCorrector" aria-hidden="true"/>
+               <p class="FontColor">Настройки изделия</p>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link oi oi-wrench" href="linesettings">
-                <span class="oi oi-layers" aria-hidden="true"></span> Настройки линии
+        <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor " href="linesettings">
+                <span class="oi oi-layers PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Настройки линии</p>
             </NavLink>
         </div>
-          <div class="nav-item px-3">
-            <NavLink class="nav-link oi oi-wrench" href="checkpointsettings">
-                <span class="oi oi-media-stop" aria-hidden="true"></span> Настройки КТ
+          <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="checkpointsettings">
+                <span class="oi oi-media-stop PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Настройки КТ</p>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Обучение
+        <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="" Match="NavLinkMatch.All">
+                <span class="oi oi-home PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Обучение</p>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="autosend">
-                <span class="oi oi-envelope-closed" aria-hidden="true"></span> Автоотправка
+        <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="autosend">
+                <span class="oi oi-envelope-closed PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Автоотправка</p>
             </NavLink>
         </div>
-         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="testPage">
-                <span class="oi oi-chevron-bottom" aria-hidden="true"></span> Тестовая страница
+         <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="testPage">
+                <span class="oi oi-chevron-bottom PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Тестовая страница</p>
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="traceability">
-                <span class="oi oi-graph" aria-hidden="true"></span> Прослеживаемость
+        <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="traceability">
+                <span class="oi oi-graph PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Прослеживаемость</p>
             </NavLink>
         </div>
-          <div class="nav-item px-3">
-            <NavLink class="nav-link" href="extraoptions">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Дополнительно
+          <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="extraoptions">
+                <span class="oi oi-list-rich PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Дополнительно</p>
             </NavLink>
         </div>
-          <div class="nav-item px-3">
-            <NavLink class="nav-link" href="sitesettings">
-                <span class="oi oi-terminal" aria-hidden="true"></span> Администрирование
+          <div class="NavMenuDiv">
+            <NavLink class="TabBackgroundColor" href="sitesettings">
+                <span class="oi oi-terminal PaddingCorrector" aria-hidden="true"></span>
+                <p class="FontColor"> Администрирование</p>
             </NavLink>
         </div>
     </nav>
 </div>
 
+
 <!--Генерируемый код-->
 @code {
+
     private bool collapseNavMenu = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
@@ -58,4 +109,5 @@
     {
         collapseNavMenu = !collapseNavMenu;
     }
+
 }

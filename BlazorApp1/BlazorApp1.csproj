@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="wwwroot\css\StyleSheet.css" />
     <Content Remove="wwwroot\css\TestsPageStyles.css" />
   </ItemGroup>
 
@@ -37,5 +36,7 @@
     <Folder Include="DataContext\CheckPointAutosend\" />
     <Folder Include="DataContext\Traceability\" />
   </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties properties_4launchsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
 
 </Project>

@@ -11,14 +11,14 @@
 
 <PageTitle>Автоотправка</PageTitle>
 
-@if ((SelectItem == null) || (user == null))
+@if (SelectItem == null)
 {
     <div class='spinner'>
         <div class='dot'></div>
         <div class='dot'></div>
         <div class='dot'></div>
     </div>
-    @*<svg>
+    <svg>
     <defs>
         <filter id='goo'>
             <feGaussianBlur in='SourceGraphic' stdDeviation='8' result='blur' />
@@ -30,11 +30,11 @@
             <feBlend in='SourceGraphic' in2='goo' />
         </filter>
     </defs>
-</svg>*@
+</svg>
 }
 else
 {
-    @if (!PermissionLevel("Admin"))
+    @if (!PermissionLevelPerem)
     {
         <h3>Нет прав для просмотра раздела, обратитесь к администратору!</h3>
     }
@@ -50,7 +50,7 @@ else
             </InputSelect>@*Качественный InputSelect*@
         </EditForm>
         <div id="line_grid">
-            @if (PermissionLevel("Admin"))
+            @if (PermissionLevelPerem)
             {
                 <div id="sub_line_grid">
                     <div>
@@ -81,13 +81,13 @@ else
             <div id="grid" style="border: 1px solid;">
 
                 <div>
-                    <div class="menu_headers">Имя программы: </div>
+                    <div >Имя программы: </div>
                     <input size="100%" @bind="SelectProgramm.ProgrammSend" />
                     <p></p>
-                    <div class="menu_headers">Номер следующей отправки: </div>
+                    <div >Номер следующей отправки: </div>
                     <input @bind="SelectProgramm.NumberSend" />
                     <p></p>
-                    <div class="menu_headers">Последняя дата отправки:</div>
+                    <div >Последняя дата отправки:</div>
                     @if (SelectProgramm.PreviosSend.Year
                    < 2000) { SelectProgramm.PreviosSend = DateTime.Now; }
                     else
@@ -95,7 +95,7 @@ else
                         <input type="datetime-local" min="2000-01-01T00:00" @bind="SelectProgramm.PreviosSend" />
                     }
                     <p></p>
-                    <div class="menu_headers">Тема письма:</div>
+                    <div >Тема письма:</div>
                     <div>
                         @foreach (var item in Genres)
                         {
@@ -104,7 +104,7 @@ else
                     </div>
                     <textarea cols="100" @bind="SelectProgramm.SubjectMail" />
                     <p></p>
-                    <div class="menu_headers">Текст письма: </div>
+                    <div >Текст письма: </div>
                     <div>
                         @foreach (var item in Genres2)
                         {
@@ -113,7 +113,7 @@ else
                     </div>
                     <textarea cols="100" @bind="SelectProgramm.BodyMail" />
                     <p></p>
-                    <div class="menu_headers">Структура вложения письма:</div>
+                    <div >Структура вложения письма:</div>
                     <div>
                         @foreach (var item in Genres3)
                         {
@@ -213,45 +213,58 @@ else
 
 @code {
 
-    private BlazorApp1.DataContext.Permissions.UserPermissions? user{ get; set; }
+    //private BlazorApp1.DataContext.Permissions.UserPermissions? user{ get; set; }
+    static bool PermissionLevelPerem = false;
+
+    string UserName = "";
 
     protected override async Task OnInitializedAsync() => await Task.Run(Load);
+
     private void Load()
     {
         Task<AuthenticationState> authState = AuthenticationStateProvider.GetAuthenticationStateAsync();
-
-        user = new(authState.Result.User.Identity.Name, "Автоотправка");
-
-        SelectItem = db.SettingSenderManMails.Include(c => c.ClientMails).Include(u => u.CopyMails).Include(r => r.ProductIds).ToList();
-
+        try
+        {
+            //Получаем данные с таблиц Списка работников, Cтраниц и правил
+            PermissionLevelPerem = Authorization.Authorization.AuthorizationCheck(authState.Result.User.Identity.Name.Replace(@"\", @"%5C"), "Настройки линии");
+            UserName = authState.Result.User.Identity.Name.Replace(@"\", @"%5C");
+            GettingLineSettingsDataFromApi();
+        }
+        catch (Exception ex)
+        {
+            string exe = ex.Message.ToString();
+        }
     }
+
+    private void GettingLineSettingsDataFromApi()
+    {
+        Parallel.Invoke(
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    SelectItem = JsonConvert.DeserializeObject<List<Database.SettingSenderMan.SettingSenderManMails>>(client.DownloadString($"http://192.168.96.139:5139/api/SettingSenderMan/Get_SettingSenderManMails_includingAllTables"));//Посылаем запрос на получение строки
+                }
+            },
+            () =>
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                   // SelectItem = JsonConvert.DeserializeObject<List<Database.SettingSenderMan.SettingSenderManMails>>(client.DownloadString($"http://192.168.96.139:5139/api/SettingSenderMan/Get_SettingSenderManMails_includingAllTables"));//Посылаем запрос на получение строки
+                }
+            }
+
+            );
+    }
+
     string selectedValue;
-    private Database.SettingSenderMan.SettingSenderManContext db = new Database.SettingSenderMan.SettingSenderManContext();
+    //private Database.SettingSenderMan.SettingSenderManContext db = new Database.SettingSenderMan.SettingSenderManContext();
     private Database.SettingSenderMan.SettingSenderManMails SelectProgramm { get; set; } = null;//Выбранная текущая программа
 
     private ICollection<Database.SettingSenderMan.SettingSenderManMails>? SelectItem { get; set; }//Основная модель для клиента
     private ICollection<Database.SettingSenderMan.ClientMails>? SelectClients { get; set; } = null;//Коллекция выбранной программы
     private ICollection<Database.SettingSenderMan.CopyMails>? SelectCopy { get; set; } = null;//Коллекция  выбранной программы
     private ICollection<Database.SettingSenderMan.ProductIds>? SelectIds { get; set; } = null;//Коллекция  выбранной программы
-
-
-
-    /// <summary>
-    /// Проверка уровня доступа
-    /// </summary>
-    /// <param name="level"></param>
-    /// <returns></returns>
-    private bool PermissionLevel(string level)
-    {
-        foreach(var rule in user.rulesList)
-        {
-            if(rule.PermissionLevel == level)
-            {
-                return true;
-            }            
-        }
-        return false;
-    }
 
     //Редактирование формы
     #region Редактирование формы
@@ -356,9 +369,10 @@ else
         try
         {
             if(!string.IsNullOrEmpty(SelectProgramm.ProgrammSend))
-            {                
-                db.Add(SelectProgramm);
-                db.SaveChanges();
+            {     
+                //TODO: Добавление
+                //db.Add(SelectProgramm);
+                //db.SaveChanges();
             } 
         }
         catch(Exception)
@@ -398,9 +412,10 @@ else
         {
             foreach(var data in SelectItem)
             {            
-                db.Entry(data).State = EntityState.Modified;
+                //TODO: Сохранение изменений
+                //db.Entry(data).State = EntityState.Modified;
             }
-            db.SaveChanges();
+            //db.SaveChanges();
         }        
         _navigationManager.NavigateTo("/autosend", true);   
     } 
@@ -411,9 +426,9 @@ else
         if (await JsRuntime.InvokeAsync<bool>("confirm", "Вы уверены, что хотите удалить программу: \"" + SelectProgramm.ProgrammSend + "\" ?"))
         {          
             // Удалить SelectProgramm!
-
-            db.Remove(SelectProgramm);
-            db.SaveChanges();
+           //TODO:Удаление
+            //db.Remove(SelectProgramm);
+            //db.SaveChanges();
             //SelectItem = SelectItem?.Where(a => a.ProgrammSend != SelectProgramm.ProgrammSend).ToList();
             DisposeForm();
             _navigationManager.NavigateTo("/autosend", true);
